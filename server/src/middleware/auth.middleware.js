@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { Merchant } from '../src/models/pg/index.js';
+import { Merchant } from '../models/pg/index.js';
 import { errorResponse } from '../utils/apiResponse.js';
 
 /**

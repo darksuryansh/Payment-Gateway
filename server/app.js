@@ -6,19 +6,19 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Database connections
-import { connectPG, syncDatabase, connectMongo } from './config/db.js';
+import { connectPG, syncDatabase, connectMongo } from './src/config/db.js';
 
 // Import models (triggers registration + associations)
-import './models/pg/index.js';
+import './src/models/pg/index.js';
 
 // Routes
-import authRoutes from './routes/auth.routes.js';
-import merchantRoutes from './routes/merchant.routes.js';
-import paymentRoutes from './routes/payment.routes.js';
-import webhookRoutes from './routes/webhook.routes.js';
+import authRoutes from './src/routes/auth.routes.js';
+import merchantRoutes from './src/routes/merchant.routes.js';
+import paymentRoutes from './src/routes/payment.routes.js';
+import webhookRoutes from './src/routes/webhook.routes.js';
 
 // Middleware
-import { errorHandler } from './middleware/error.middleware.js';
+import { errorHandler } from './src/middleware/error.middleware.js';
 
 const app = express();
 
