@@ -1,10 +1,10 @@
 import jwt from 'jsonwebtoken';
-import { Merchant } from '../models/pg/index.js';
+import { Merchant, TeamMember } from '../models/pg/index.js';
 import { errorResponse } from '../utils/apiResponse.js';
 
 /**
  * JWT Bearer token authentication for dashboard APIs.
- * Attaches merchant to req.merchant on success.
+ * Supports both merchant and team member tokens.
  */
 export const authenticate = async (req, res, next) => {
   try {
@@ -17,6 +17,30 @@ export const authenticate = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Team member token
+    if (decoded.team_member_id) {
+      const teamMember = await TeamMember.findByPk(decoded.team_member_id, {
+        attributes: { exclude: ['password'] },
+      });
+
+      if (!teamMember || !teamMember.is_active) {
+        return errorResponse(res, 401, 'Invalid token. Team member not found or inactive.');
+      }
+
+      const merchant = await Merchant.findByPk(teamMember.merchant_id, {
+        attributes: { exclude: ['password'] },
+      });
+
+      if (!merchant || !merchant.is_active) {
+        return errorResponse(res, 403, 'Merchant account is deactivated.');
+      }
+
+      req.merchant = merchant;
+      req.teamMember = teamMember;
+      return next();
+    }
+
+    // Merchant token
     const merchant = await Merchant.findByPk(decoded.id, {
       attributes: { exclude: ['password'] },
     });
@@ -44,7 +68,7 @@ export const authenticate = async (req, res, next) => {
 
 /**
  * API key authentication for server-to-server payment APIs.
- * Uses X-Api-Key header.
+ * Supports both live (pk_live_) and test (pk_test_) keys.
  */
 export const authenticateApiKey = async (req, res, next) => {
   try {
@@ -54,8 +78,13 @@ export const authenticateApiKey = async (req, res, next) => {
       return errorResponse(res, 401, 'Access denied. No API key provided.');
     }
 
+    const isTestKey = apiKey.startsWith('pk_test_');
+    const whereClause = isTestKey
+      ? { test_api_key: apiKey, is_active: true }
+      : { api_key: apiKey, is_active: true };
+
     const merchant = await Merchant.findOne({
-      where: { api_key: apiKey, is_active: true },
+      where: whereClause,
       attributes: { exclude: ['password'] },
     });
 
@@ -64,8 +93,28 @@ export const authenticateApiKey = async (req, res, next) => {
     }
 
     req.merchant = merchant;
+    req.environment = isTestKey ? 'test' : 'live';
     next();
   } catch (err) {
     next(err);
   }
+};
+
+/**
+ * Role-based authorization middleware factory.
+ * Usage: authorizeRole('owner', 'admin')
+ */
+export const authorizeRole = (...roles) => {
+  return (req, res, next) => {
+    // Merchant owners always have full access
+    if (!req.teamMember) {
+      return next();
+    }
+
+    if (!roles.includes(req.teamMember.role)) {
+      return errorResponse(res, 403, 'Insufficient permissions for this action.');
+    }
+
+    next();
+  };
 };
