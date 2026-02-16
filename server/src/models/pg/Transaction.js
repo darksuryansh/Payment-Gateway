@@ -69,6 +69,25 @@ export default (sequelize) => {
       type: DataTypes.DATE,
       allowNull: true,
     },
+    invoice_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'invoices', key: 'id' },
+    },
+    subscription_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'subscriptions', key: 'id' },
+    },
+    split_rule_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'split_rules', key: 'id' },
+    },
+    environment: {
+      type: DataTypes.ENUM('test', 'live'),
+      defaultValue: 'live',
+    },
   });
 
   return Transaction;

@@ -33,6 +33,39 @@ export default (sequelize) => {
       type: DataTypes.DATE,
       allowNull: true,
     },
+    title: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    customer_name: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    customer_email: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      validate: { isEmail: true },
+    },
+    customer_phone: {
+      type: DataTypes.STRING(15),
+      allowNull: true,
+    },
+    redirect_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    is_partial: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    min_amount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    metadata: {
+      type: DataTypes.JSONB,
+      defaultValue: {},
+    },
   });
 
   return PaymentLink;

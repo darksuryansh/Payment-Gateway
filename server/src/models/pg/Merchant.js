@@ -51,6 +51,28 @@ export default (sequelize) => {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    test_api_key: {
+      type: DataTypes.STRING(64),
+      unique: true,
+      allowNull: true,
+    },
+    test_api_secret: {
+      type: DataTypes.STRING(64),
+      unique: true,
+      allowNull: true,
+    },
+    logo_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    gst_number: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    pan_number: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
   });
 
   return Merchant;
