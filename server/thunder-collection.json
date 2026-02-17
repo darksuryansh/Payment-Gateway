@@ -1,0 +1,872 @@
+{
+  "client": "Thunder Client",
+  "collectionName": "Boomlex Payment Gateway",
+  "dateExported": "2026-02-16T00:00:00.000Z",
+  "version": "1.1",
+  "folders": [
+    { "_id": "f1", "name": "1. Auth", "containerId": "", "sortNum": 10000 },
+    { "_id": "f2", "name": "2. Payment (BharatEasy)", "containerId": "", "sortNum": 20000 },
+    { "_id": "f3", "name": "3. Merchant Profile & Settings", "containerId": "", "sortNum": 30000 },
+    { "_id": "f4", "name": "4. Dashboard & Analytics", "containerId": "", "sortNum": 40000 },
+    { "_id": "f5", "name": "5. Payment Links & QR", "containerId": "", "sortNum": 50000 },
+    { "_id": "f6", "name": "6. Invoices", "containerId": "", "sortNum": 60000 },
+    { "_id": "f7", "name": "7. Webhooks", "containerId": "", "sortNum": 70000 },
+    { "_id": "f8", "name": "8. Refunds", "containerId": "", "sortNum": 80000 },
+    { "_id": "f9", "name": "9. Subscriptions", "containerId": "", "sortNum": 90000 },
+    { "_id": "f10", "name": "10. Team Management", "containerId": "", "sortNum": 100000 },
+    { "_id": "f11", "name": "11. Settlements", "containerId": "", "sortNum": 110000 },
+    { "_id": "f12", "name": "12. Split Payments", "containerId": "", "sortNum": 120000 },
+    { "_id": "f13", "name": "13. Payment Pages & Buttons", "containerId": "", "sortNum": 130000 }
+  ],
+  "requests": [
+    {
+      "_id": "r1",
+      "colId": "",
+      "containerId": "f1",
+      "name": "Register Merchant",
+      "url": "http://localhost:4000/api/auth/register",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"business_name\": \"Test Store\",\n  \"email\": \"test@boomlex.com\",\n  \"password\": \"password123\",\n  \"phone\": \"9876543210\",\n  \"business_type\": \"individual\",\n  \"website\": \"https://teststore.com\"\n}"
+      }
+    },
+    {
+      "_id": "r2",
+      "colId": "",
+      "containerId": "f1",
+      "name": "Login Merchant",
+      "url": "http://localhost:4000/api/auth/login",
+      "method": "POST",
+      "sortNum": 20000,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"test@boomlex.com\",\n  \"password\": \"password123\"\n}"
+      }
+    },
+    {
+      "_id": "r10",
+      "colId": "",
+      "containerId": "f2",
+      "name": "⭐ Initiate Payment (API Key Auth)",
+      "url": "http://localhost:4000/api/payment/initiate",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Api-Key", "value": "{{api_key}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"amount\": 1,\n  \"note\": \"Test payment via BharatEasy\",\n  \"callback_url\": \"http://localhost:4000/api/payment/callback\"\n}"
+      }
+    },
+    {
+      "_id": "r11",
+      "colId": "",
+      "containerId": "f2",
+      "name": "Check Payment Status",
+      "url": "http://localhost:4000/api/payment/status/{{order_id}}",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r12",
+      "colId": "",
+      "containerId": "f2",
+      "name": "List Transactions",
+      "url": "http://localhost:4000/api/payment/transactions?page=1&limit=10",
+      "method": "GET",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r13",
+      "colId": "",
+      "containerId": "f2",
+      "name": "List Transactions (with filters)",
+      "url": "http://localhost:4000/api/payment/transactions?status=COMPLETED&min_amount=1&max_amount=1000&sort_by=created_at&sort_order=DESC&page=1&limit=10",
+      "method": "GET",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r14",
+      "colId": "",
+      "containerId": "f2",
+      "name": "Search Transactions",
+      "url": "http://localhost:4000/api/payment/transactions?search={{order_id}}",
+      "method": "GET",
+      "sortNum": 50000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r15",
+      "colId": "",
+      "containerId": "f2",
+      "name": "Export Transactions CSV",
+      "url": "http://localhost:4000/api/payment/transactions/export",
+      "method": "GET",
+      "sortNum": 60000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r16",
+      "colId": "",
+      "containerId": "f2",
+      "name": "Simulate BharatEasy Callback",
+      "url": "http://localhost:4000/api/payment/callback",
+      "method": "POST",
+      "sortNum": 70000,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"status\": \"SUCCESS\",\n  \"orderId\": \"{{order_id}}\",\n  \"message\": \"Transaction successful\",\n  \"checksum\": \"replace_with_actual_checksum\"\n}"
+      }
+    },
+    {
+      "_id": "r20",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Get Profile",
+      "url": "http://localhost:4000/api/merchant/profile",
+      "method": "GET",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r21",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Update Profile",
+      "url": "http://localhost:4000/api/merchant/profile",
+      "method": "PUT",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"business_name\": \"Updated Store Name\",\n  \"gst_number\": \"29ABCDE1234F1Z5\",\n  \"pan_number\": \"ABCDE1234F\"\n}"
+      }
+    },
+    {
+      "_id": "r22",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Get API Keys (masked)",
+      "url": "http://localhost:4000/api/merchant/api-keys",
+      "method": "GET",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r23",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Regenerate Live Keys",
+      "url": "http://localhost:4000/api/merchant/regenerate-keys",
+      "method": "POST",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r24",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Regenerate Test Keys",
+      "url": "http://localhost:4000/api/merchant/api-keys/test/regenerate",
+      "method": "POST",
+      "sortNum": 50000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r25",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Get API Usage Stats",
+      "url": "http://localhost:4000/api/merchant/api-keys/usage",
+      "method": "GET",
+      "sortNum": 60000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r26",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Get Settings",
+      "url": "http://localhost:4000/api/merchant/settings",
+      "method": "GET",
+      "sortNum": 70000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r27",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Update Settings",
+      "url": "http://localhost:4000/api/merchant/settings",
+      "method": "PUT",
+      "sortNum": 80000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"notification_email\": true,\n  \"notification_sms\": false,\n  \"auto_settlement\": true,\n  \"settlement_schedule\": \"daily\"\n}"
+      }
+    },
+    {
+      "_id": "r28",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Add Bank Account (UPI)",
+      "url": "http://localhost:4000/api/merchant/bank-accounts",
+      "method": "POST",
+      "sortNum": 90000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"upi_id\": \"merchant@upi\",\n  \"provider\": \"gpay\",\n  \"is_primary\": true\n}"
+      }
+    },
+    {
+      "_id": "r29",
+      "colId": "",
+      "containerId": "f3",
+      "name": "List Bank Accounts",
+      "url": "http://localhost:4000/api/merchant/bank-accounts",
+      "method": "GET",
+      "sortNum": 100000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r30",
+      "colId": "",
+      "containerId": "f3",
+      "name": "Change Password",
+      "url": "http://localhost:4000/api/merchant/change-password",
+      "method": "POST",
+      "sortNum": 110000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"current_password\": \"password123\",\n  \"new_password\": \"newpassword123\"\n}"
+      }
+    },
+    {
+      "_id": "r40",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Dashboard Stats",
+      "url": "http://localhost:4000/api/dashboard/stats",
+      "method": "GET",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r41",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Revenue Chart (daily)",
+      "url": "http://localhost:4000/api/dashboard/revenue-chart?period=day",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r42",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Recent Transactions",
+      "url": "http://localhost:4000/api/dashboard/recent-transactions",
+      "method": "GET",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r43",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Quick Stats",
+      "url": "http://localhost:4000/api/dashboard/quick-stats",
+      "method": "GET",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r44",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Analytics - Revenue",
+      "url": "http://localhost:4000/api/analytics/revenue?group_by=day",
+      "method": "GET",
+      "sortNum": 50000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r45",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Analytics - Success Rate",
+      "url": "http://localhost:4000/api/analytics/success-rate",
+      "method": "GET",
+      "sortNum": 60000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r46",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Analytics - Peak Hours",
+      "url": "http://localhost:4000/api/analytics/peak-hours",
+      "method": "GET",
+      "sortNum": 70000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r47",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Analytics - Payment Modes",
+      "url": "http://localhost:4000/api/analytics/payment-modes",
+      "method": "GET",
+      "sortNum": 80000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r48",
+      "colId": "",
+      "containerId": "f4",
+      "name": "Analytics - Top Customers",
+      "url": "http://localhost:4000/api/analytics/customers?limit=10",
+      "method": "GET",
+      "sortNum": 90000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r50",
+      "colId": "",
+      "containerId": "f5",
+      "name": "Create Payment Link",
+      "url": "http://localhost:4000/api/payment-links",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"amount\": 500,\n  \"title\": \"Product Payment\",\n  \"description\": \"Payment for Order #1234\",\n  \"customer_name\": \"John Doe\",\n  \"customer_email\": \"john@example.com\",\n  \"customer_phone\": \"9876543210\"\n}"
+      }
+    },
+    {
+      "_id": "r51",
+      "colId": "",
+      "containerId": "f5",
+      "name": "List Payment Links",
+      "url": "http://localhost:4000/api/payment-links?page=1&limit=10",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r52",
+      "colId": "",
+      "containerId": "f5",
+      "name": "Generate QR Code",
+      "url": "http://localhost:4000/api/qrcodes/generate",
+      "method": "POST",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"amount\": 100,\n  \"note\": \"QR Payment\",\n  \"format\": \"png\"\n}"
+      }
+    },
+    {
+      "_id": "r53",
+      "colId": "",
+      "containerId": "f5",
+      "name": "Generate Static QR",
+      "url": "http://localhost:4000/api/qrcodes/static",
+      "method": "POST",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"format\": \"png\"\n}"
+      }
+    },
+    {
+      "_id": "r60",
+      "colId": "",
+      "containerId": "f6",
+      "name": "Create Invoice",
+      "url": "http://localhost:4000/api/invoices",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"customer_name\": \"Acme Corp\",\n  \"customer_email\": \"billing@acme.com\",\n  \"items\": [\n    { \"name\": \"Web Development\", \"qty\": 1, \"price\": 5000, \"amount\": 5000 },\n    { \"name\": \"Hosting\", \"qty\": 12, \"price\": 100, \"amount\": 1200 }\n  ],\n  \"subtotal\": 6200,\n  \"tax\": 1116,\n  \"total_amount\": 7316,\n  \"due_date\": \"2026-03-15\",\n  \"notes\": \"Payment due within 30 days\"\n}"
+      }
+    },
+    {
+      "_id": "r61",
+      "colId": "",
+      "containerId": "f6",
+      "name": "List Invoices",
+      "url": "http://localhost:4000/api/invoices?page=1&limit=10",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r62",
+      "colId": "",
+      "containerId": "f6",
+      "name": "Send Invoice",
+      "url": "http://localhost:4000/api/invoices/{{invoice_id}}/send",
+      "method": "POST",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r63",
+      "colId": "",
+      "containerId": "f6",
+      "name": "Send Reminder",
+      "url": "http://localhost:4000/api/invoices/{{invoice_id}}/remind",
+      "method": "POST",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r70",
+      "colId": "",
+      "containerId": "f7",
+      "name": "Create Webhook",
+      "url": "http://localhost:4000/api/webhooks",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"url\": \"https://webhook.site/your-unique-url\",\n  \"events\": [\"payment.success\", \"payment.failed\", \"refund.processed\"]\n}"
+      }
+    },
+    {
+      "_id": "r71",
+      "colId": "",
+      "containerId": "f7",
+      "name": "List Webhooks",
+      "url": "http://localhost:4000/api/webhooks",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r72",
+      "colId": "",
+      "containerId": "f7",
+      "name": "Update Webhook",
+      "url": "http://localhost:4000/api/webhooks/{{webhook_id}}",
+      "method": "PUT",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"events\": [\"payment.success\", \"payment.failed\", \"refund.processed\", \"invoice.paid\"],\n  \"is_active\": true\n}"
+      }
+    },
+    {
+      "_id": "r73",
+      "colId": "",
+      "containerId": "f7",
+      "name": "Test Webhook",
+      "url": "http://localhost:4000/api/webhooks/{{webhook_id}}/test",
+      "method": "POST",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r74",
+      "colId": "",
+      "containerId": "f7",
+      "name": "Webhook Delivery Logs",
+      "url": "http://localhost:4000/api/webhooks/{{webhook_id}}/logs",
+      "method": "GET",
+      "sortNum": 50000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r80",
+      "colId": "",
+      "containerId": "f8",
+      "name": "Initiate Refund",
+      "url": "http://localhost:4000/api/refunds",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"transaction_id\": \"{{transaction_id}}\",\n  \"amount\": 1,\n  \"reason\": \"Customer requested refund\"\n}"
+      }
+    },
+    {
+      "_id": "r81",
+      "colId": "",
+      "containerId": "f8",
+      "name": "List Refunds",
+      "url": "http://localhost:4000/api/refunds?page=1&limit=10",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r90",
+      "colId": "",
+      "containerId": "f9",
+      "name": "Create Subscription",
+      "url": "http://localhost:4000/api/subscriptions",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"plan_name\": \"Pro Monthly\",\n  \"description\": \"Pro plan - monthly billing\",\n  \"amount\": 999,\n  \"interval\": \"monthly\",\n  \"customer_name\": \"John Doe\",\n  \"customer_email\": \"john@example.com\",\n  \"start_date\": \"2026-02-16\"\n}"
+      }
+    },
+    {
+      "_id": "r91",
+      "colId": "",
+      "containerId": "f9",
+      "name": "List Subscriptions",
+      "url": "http://localhost:4000/api/subscriptions?page=1&limit=10",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r92",
+      "colId": "",
+      "containerId": "f9",
+      "name": "Pause Subscription",
+      "url": "http://localhost:4000/api/subscriptions/{{subscription_id}}/pause",
+      "method": "POST",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r93",
+      "colId": "",
+      "containerId": "f9",
+      "name": "Resume Subscription",
+      "url": "http://localhost:4000/api/subscriptions/{{subscription_id}}/resume",
+      "method": "POST",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r100",
+      "colId": "",
+      "containerId": "f10",
+      "name": "Invite Team Member",
+      "url": "http://localhost:4000/api/team/invite",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Team Admin\",\n  \"email\": \"admin@boomlex.com\",\n  \"password\": \"teampass123\",\n  \"role\": \"admin\",\n  \"permissions\": {\n    \"transactions\": \"write\",\n    \"refunds\": \"read\",\n    \"settings\": \"read\"\n  }\n}"
+      }
+    },
+    {
+      "_id": "r101",
+      "colId": "",
+      "containerId": "f10",
+      "name": "Team Member Login",
+      "url": "http://localhost:4000/api/team/login",
+      "method": "POST",
+      "sortNum": 20000,
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"admin@boomlex.com\",\n  \"password\": \"teampass123\"\n}"
+      }
+    },
+    {
+      "_id": "r102",
+      "colId": "",
+      "containerId": "f10",
+      "name": "List Team Members",
+      "url": "http://localhost:4000/api/team/members",
+      "method": "GET",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r103",
+      "colId": "",
+      "containerId": "f10",
+      "name": "Activity Log",
+      "url": "http://localhost:4000/api/team/activity-log?page=1&limit=20",
+      "method": "GET",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r110",
+      "colId": "",
+      "containerId": "f11",
+      "name": "List Settlements",
+      "url": "http://localhost:4000/api/settlements?page=1&limit=10",
+      "method": "GET",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r111",
+      "colId": "",
+      "containerId": "f11",
+      "name": "Settlement Summary",
+      "url": "http://localhost:4000/api/settlements/summary?period=daily",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r112",
+      "colId": "",
+      "containerId": "f11",
+      "name": "Export Settlements CSV",
+      "url": "http://localhost:4000/api/settlements/export",
+      "method": "GET",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r120",
+      "colId": "",
+      "containerId": "f12",
+      "name": "Create Split Rule",
+      "url": "http://localhost:4000/api/splits/rules",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Marketplace 80/20 Split\",\n  \"split_type\": \"percentage\",\n  \"recipients\": [\n    { \"upi_id\": \"seller@upi\", \"name\": \"Seller\", \"share\": 80 },\n    { \"upi_id\": \"platform@upi\", \"name\": \"Platform Fee\", \"share\": 20 }\n  ]\n}"
+      }
+    },
+    {
+      "_id": "r121",
+      "colId": "",
+      "containerId": "f12",
+      "name": "List Split Rules",
+      "url": "http://localhost:4000/api/splits/rules",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r122",
+      "colId": "",
+      "containerId": "f12",
+      "name": "List Split Transactions",
+      "url": "http://localhost:4000/api/splits/transactions?page=1&limit=10",
+      "method": "GET",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r130",
+      "colId": "",
+      "containerId": "f13",
+      "name": "Create Payment Page",
+      "url": "http://localhost:4000/api/payment-pages",
+      "method": "POST",
+      "sortNum": 10000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"title\": \"Premium Course Payment\",\n  \"description\": \"Full Stack Web Development Course\",\n  \"slug\": \"premium-course\",\n  \"theme_color\": \"#4F46E5\",\n  \"amount\": 4999,\n  \"success_url\": \"https://mysite.com/success\",\n  \"cancel_url\": \"https://mysite.com/cancel\"\n}"
+      }
+    },
+    {
+      "_id": "r131",
+      "colId": "",
+      "containerId": "f13",
+      "name": "List Payment Pages",
+      "url": "http://localhost:4000/api/payment-pages",
+      "method": "GET",
+      "sortNum": 20000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r132",
+      "colId": "",
+      "containerId": "f13",
+      "name": "Create Payment Button",
+      "url": "http://localhost:4000/api/payment-buttons",
+      "method": "POST",
+      "sortNum": 30000,
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"label\": \"Pay Now - ₹499\",\n  \"amount\": 499,\n  \"style\": {\n    \"color\": \"#10B981\",\n    \"size\": \"large\",\n    \"borderRadius\": \"8px\",\n    \"theme\": \"dark\"\n  },\n  \"redirect_url\": \"https://mysite.com/thankyou\"\n}"
+      }
+    },
+    {
+      "_id": "r133",
+      "colId": "",
+      "containerId": "f13",
+      "name": "List Payment Buttons",
+      "url": "http://localhost:4000/api/payment-buttons",
+      "method": "GET",
+      "sortNum": 40000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "r134",
+      "colId": "",
+      "containerId": "f13",
+      "name": "Get Button Embed Code",
+      "url": "http://localhost:4000/api/payment-buttons/{{button_id}}/embed",
+      "method": "GET",
+      "sortNum": 50000,
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    }
+  ]
+}
