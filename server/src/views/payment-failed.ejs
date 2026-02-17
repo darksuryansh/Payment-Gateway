@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title : 'Payment Failed' %></title>
+  <link rel="stylesheet" href="/static/css/checkout.css">
+</head>
+<body>
+  <div class="checkout-container">
+    <div class="checkout-card">
+      <div class="status-icon error-icon">&#10007;</div>
+      <h1 class="status-title"><%= typeof title !== 'undefined' ? title : 'Payment Failed' %></h1>
+      <p class="status-message"><%= typeof message !== 'undefined' ? message : 'Your payment could not be processed. Please try again.' %></p>
+      <div class="footer">
+        <p>Secured by <strong>Boomlex Payment Gateway</strong></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
