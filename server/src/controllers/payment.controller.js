@@ -1,7 +1,9 @@
+import { Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from '../models/pg/index.js';
 import { processPayment, checkTransactionStatus, verifyCallbackChecksum } from '../services/bharatEasy.service.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
+import { exportTransactionsCSV } from '../services/export.service.js';
 import ApiLog from '../models/mongo/ApiLog.js';
 
 /**
@@ -204,7 +206,7 @@ export const getPaymentStatus = async (req, res, next) => {
 
 /**
  * GET /api/payment/transactions
- * List all transactions for the authenticated merchant (paginated).
+ * List all transactions with filters, search, sorting.
  */
 export const listTransactions = async (req, res, next) => {
   try {
@@ -213,9 +215,36 @@ export const listTransactions = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
+    const { status, date_from, date_to, min_amount, max_amount, search, sort_by, sort_order } = req.query;
+
+    const where = { merchant_id: merchantId };
+
+    if (status) where.status = status;
+    if (date_from || date_to) {
+      where.created_at = {};
+      if (date_from) where.created_at[Op.gte] = new Date(date_from);
+      if (date_to) where.created_at[Op.lte] = new Date(date_to);
+    }
+    if (min_amount || max_amount) {
+      where.amount = {};
+      if (min_amount) where.amount[Op.gte] = parseFloat(min_amount);
+      if (max_amount) where.amount[Op.lte] = parseFloat(max_amount);
+    }
+    if (search) {
+      where[Op.or] = [
+        { order_id: { [Op.iLike]: `%${search}%` } },
+        { utr: { [Op.iLike]: `%${search}%` } },
+        { sender_vpa: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
+
+    const validSortFields = ['created_at', 'amount', 'status'];
+    const orderField = validSortFields.includes(sort_by) ? sort_by : 'created_at';
+    const orderDir = sort_order === 'ASC' ? 'ASC' : 'DESC';
+
     const { count, rows } = await Transaction.findAndCountAll({
-      where: { merchant_id: merchantId },
-      order: [['created_at', 'DESC']],
+      where,
+      order: [[orderField, orderDir]],
       limit,
       offset,
       attributes: { exclude: ['callback_url'] },
@@ -230,6 +259,45 @@ export const listTransactions = async (req, res, next) => {
         total_pages: Math.ceil(count / limit),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/payment/transactions/export
+ * Export transactions as CSV.
+ */
+export const exportTransactions = async (req, res, next) => {
+  try {
+    const merchantId = req.merchant.id;
+    const { status, date_from, date_to, min_amount, max_amount } = req.query;
+
+    const where = { merchant_id: merchantId };
+    if (status) where.status = status;
+    if (date_from || date_to) {
+      where.created_at = {};
+      if (date_from) where.created_at[Op.gte] = new Date(date_from);
+      if (date_to) where.created_at[Op.lte] = new Date(date_to);
+    }
+    if (min_amount || max_amount) {
+      where.amount = {};
+      if (min_amount) where.amount[Op.gte] = parseFloat(min_amount);
+      if (max_amount) where.amount[Op.lte] = parseFloat(max_amount);
+    }
+
+    const transactions = await Transaction.findAll({
+      where,
+      order: [['created_at', 'DESC']],
+      attributes: { exclude: ['callback_url'] },
+      raw: true,
+    });
+
+    const csv = exportTransactionsCSV(transactions);
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=transactions.csv');
+    return res.send(csv);
   } catch (err) {
     next(err);
   }

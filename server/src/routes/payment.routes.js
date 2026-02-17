@@ -4,6 +4,7 @@ import {
   paymentCallback,
   getPaymentStatus,
   listTransactions,
+  exportTransactions,
 } from '../controllers/payment.controller.js';
 import { authenticate, authenticateApiKey } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -22,7 +23,10 @@ router.post('/callback', paymentCallback);
 // Status check - JWT auth
 router.get('/status/:orderId', authenticate, getPaymentStatus);
 
-// List transactions - JWT auth (paginated)
+// List transactions with filters - JWT auth
 router.get('/transactions', authenticate, listTransactions);
+
+// Export transactions as CSV - JWT auth
+router.get('/transactions/export', authenticate, exportTransactions);
 
 export default router;
