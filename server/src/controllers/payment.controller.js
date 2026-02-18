@@ -1,24 +1,21 @@
 import { Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
-import { Transaction } from '../models/pg/index.js';
+import { Transaction, Invoice, sequelize } from '../models/pg/index.js';
 import { processPayment, checkTransactionStatus, verifyCallbackChecksum } from '../services/bharatEasy.service.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { exportTransactionsCSV } from '../services/export.service.js';
+import { triggerMerchantWebhooks } from '../services/webhook.service.js';
 import ApiLog from '../models/mongo/ApiLog.js';
 
 /**
  * POST /api/payment/initiate
- * Initiate a new UPI payment.
  */
 export const initiatePayment = async (req, res, next) => {
   try {
     const { amount, note, callback_url } = req.body;
     const merchantId = req.merchant.id;
-
-    // Generate unique alphanumeric order ID
     const orderId = `ORD${uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase()}`;
 
-    // Create transaction in PENDING state
     const transaction = await Transaction.create({
       merchant_id: merchantId,
       order_id: orderId,
@@ -28,7 +25,6 @@ export const initiatePayment = async (req, res, next) => {
       status: 'PENDING',
     });
 
-    // Call BharatEasy API
     const bharatEasyResponse = await processPayment({
       orderId,
       txnAmount: amount,
@@ -36,104 +32,112 @@ export const initiatePayment = async (req, res, next) => {
       callbackUrl: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
     });
 
-    // Log the API call
     await ApiLog.create({
-      merchant_id: merchantId,
-      endpoint: '/order/process',
-      method: 'POST',
+      merchant_id: merchantId, endpoint: '/order/process', method: 'POST',
       request_body: { orderId, txnAmount: amount, txnNote: note },
-      response_body: bharatEasyResponse,
-      status_code: 200,
-      ip_address: req.ip,
+      response_body: bharatEasyResponse, status_code: 200, ip_address: req.ip,
     });
 
     return successResponse(res, 201, 'Payment initiated successfully.', {
-      order_id: orderId,
-      transaction_id: transaction.id,
-      amount,
-      status: 'PENDING',
-      gateway_response: bharatEasyResponse,
+      order_id: orderId, transaction_id: transaction.id,
+      amount, status: 'PENDING', gateway_response: bharatEasyResponse,
     });
   } catch (err) {
-    // Log failed API calls
     try {
       await ApiLog.create({
-        merchant_id: req.merchant?.id,
-        endpoint: '/order/process',
-        method: 'POST',
-        request_body: req.body,
-        response_body: { error: err.message },
-        status_code: err.response?.status || 500,
-        ip_address: req.ip,
+        merchant_id: req.merchant?.id, endpoint: '/order/process', method: 'POST',
+        request_body: req.body, response_body: { error: err.message },
+        status_code: err.response?.status || 500, ip_address: req.ip,
       });
-    } catch (logErr) {
-      console.error('Failed to log API error:', logErr.message);
-    }
+    } catch (_) {}
     next(err);
   }
 };
 
 /**
  * POST /api/payment/callback
- * Callback endpoint called by BharatEasy after payment processing.
- * NOT authenticated - called by BharatEasy's server.
+ * Called by BharatEasy after payment. NOT authenticated.
+ * Uses DB transaction for atomicity + idempotency guard.
  */
 export const paymentCallback = async (req, res, next) => {
   try {
-    const { status, message, hash, checksum, orderId } = req.body;
+    const { status, checksum, orderId } = req.body;
 
     const transaction = await Transaction.findOne({ where: { order_id: orderId } });
-    if (!transaction) {
-      return errorResponse(res, 404, 'Transaction not found for this order.');
+    if (!transaction) return errorResponse(res, 404, 'Transaction not found for this order.');
+
+    // Idempotency: skip if already processed
+    if (transaction.status === 'COMPLETED' || transaction.status === 'FAILED') {
+      return successResponse(res, 200, 'Already processed.');
     }
 
-    // Verify checksum for SUCCESS responses
+    // Verify checksum for SUCCESS
     if (status === 'SUCCESS' && checksum) {
       const isValid = verifyCallbackChecksum({
-        checksum,
-        orderId,
-        txnAmount: String(transaction.amount),
+        checksum, orderId, txnAmount: String(transaction.amount),
       });
-
       if (!isValid) {
-        console.error(`Checksum verification failed for order: ${orderId}`);
+        console.error(`Checksum failed for order: ${orderId}`);
         await transaction.update({ status: 'FAILED' });
         return errorResponse(res, 400, 'Checksum verification failed.');
       }
     }
 
-    // Fetch full transaction details from BharatEasy status API
+    // Fetch full details from BharatEasy
     const statusResponse = await checkTransactionStatus(orderId);
+    let finalStatus = 'FAILED';
+    let updateData = { status: 'FAILED' };
 
     if (statusResponse.status === 'SUCCESS' && statusResponse.result) {
-      const result = statusResponse.result;
-      await transaction.update({
-        txn_id: result.txnId || null,
-        bank_txn_id: result.bankTxnId || null,
-        fees: result.fees ? parseFloat(result.fees) : 0,
-        settle_amount: result.settle_amount ? parseFloat(result.settle_amount) : 0,
-        status: result.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED',
-        payment_mode: result.paymentMode || null,
-        sender_vpa: result.sender_vpa || null,
-        sender_note: result.sender_note || null,
-        payee_vpa: result.payee_vpa || null,
-        utr: result.utr || null,
-        txn_date: result.txnDate ? new Date(result.txnDate) : null,
-      });
-    } else {
-      await transaction.update({ status: 'FAILED' });
+      const r = statusResponse.result;
+      finalStatus = r.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
+      updateData = {
+        txn_id: r.txnId || null,
+        bank_txn_id: r.bankTxnId || null,
+        fees: r.fees ? parseFloat(r.fees) : 0,
+        settle_amount: r.settle_amount ? parseFloat(r.settle_amount) : 0,
+        status: finalStatus,
+        payment_mode: r.paymentMode || null,
+        sender_vpa: r.sender_vpa || null,
+        sender_note: r.sender_note || null,
+        payee_vpa: r.payee_vpa || null,
+        utr: r.utr || null,
+        txn_date: r.txnDate ? new Date(r.txnDate) : null,
+      };
     }
 
-    // Log callback
-    await ApiLog.create({
-      merchant_id: transaction.merchant_id,
-      endpoint: '/api/payment/callback',
-      method: 'POST',
-      request_body: req.body,
-      response_body: statusResponse,
-      status_code: 200,
-      ip_address: req.ip,
+    // Atomic DB update
+    await sequelize.transaction(async (t) => {
+      await transaction.update(updateData, { transaction: t });
+
+      // If completed and linked to an invoice, mark invoice as PAID
+      if (finalStatus === 'COMPLETED' && transaction.invoice_id) {
+        await Invoice.update(
+          { status: 'PAID', amount_paid: transaction.amount },
+          { where: { id: transaction.invoice_id }, transaction: t }
+        );
+      }
     });
+
+    // Log the callback
+    await ApiLog.create({
+      merchant_id: transaction.merchant_id, endpoint: '/api/payment/callback',
+      method: 'POST', request_body: req.body, response_body: statusResponse,
+      status_code: 200, ip_address: req.ip,
+    });
+
+    // Fire webhooks non-blocking (after commit)
+    const event = finalStatus === 'COMPLETED' ? 'payment.success' : 'payment.failed';
+    triggerMerchantWebhooks(transaction.merchant_id, event, {
+      event,
+      order_id: transaction.order_id,
+      transaction_id: transaction.id,
+      amount: transaction.amount,
+      status: finalStatus,
+      utr: transaction.utr,
+      payment_mode: transaction.payment_mode,
+      txn_date: transaction.txn_date,
+    }).catch((err) => console.error('[WEBHOOK]', err.message));
 
     return successResponse(res, 200, 'Callback processed.');
   } catch (err) {
@@ -143,39 +147,27 @@ export const paymentCallback = async (req, res, next) => {
 
 /**
  * GET /api/payment/status/:orderId
- * Check the status of a payment.
  */
 export const getPaymentStatus = async (req, res, next) => {
   try {
     const { orderId } = req.params;
-    const merchantId = req.merchant.id;
-
     const transaction = await Transaction.findOne({
-      where: { order_id: orderId, merchant_id: merchantId },
+      where: { order_id: orderId, merchant_id: req.merchant.id },
     });
+    if (!transaction) return errorResponse(res, 404, 'Transaction not found.');
 
-    if (!transaction) {
-      return errorResponse(res, 404, 'Transaction not found.');
-    }
-
-    // Refresh from BharatEasy if still PENDING
     if (transaction.status === 'PENDING') {
       try {
         const statusResponse = await checkTransactionStatus(orderId);
-
         if (statusResponse.status === 'SUCCESS' && statusResponse.result) {
-          const result = statusResponse.result;
+          const r = statusResponse.result;
           await transaction.update({
-            txn_id: result.txnId || null,
-            bank_txn_id: result.bankTxnId || null,
-            fees: result.fees ? parseFloat(result.fees) : 0,
-            settle_amount: result.settle_amount ? parseFloat(result.settle_amount) : 0,
-            status: result.txnStatus === 'COMPLETED' ? 'COMPLETED'
-                  : result.txnStatus === 'FAILED' ? 'FAILED' : 'PENDING',
-            payment_mode: result.paymentMode || null,
-            sender_vpa: result.sender_vpa || null,
-            utr: result.utr || null,
-            txn_date: result.txnDate ? new Date(result.txnDate) : null,
+            txn_id: r.txnId || null, bank_txn_id: r.bankTxnId || null,
+            fees: r.fees ? parseFloat(r.fees) : 0,
+            settle_amount: r.settle_amount ? parseFloat(r.settle_amount) : 0,
+            status: r.txnStatus === 'COMPLETED' ? 'COMPLETED' : r.txnStatus === 'FAILED' ? 'FAILED' : 'PENDING',
+            payment_mode: r.paymentMode || null, sender_vpa: r.sender_vpa || null,
+            utr: r.utr || null, txn_date: r.txnDate ? new Date(r.txnDate) : null,
           });
           await transaction.reload();
         }
@@ -186,17 +178,11 @@ export const getPaymentStatus = async (req, res, next) => {
 
     return successResponse(res, 200, 'Transaction status retrieved.', {
       transaction: {
-        order_id: transaction.order_id,
-        txn_id: transaction.txn_id,
-        amount: transaction.amount,
-        fees: transaction.fees,
-        settle_amount: transaction.settle_amount,
-        status: transaction.status,
-        payment_mode: transaction.payment_mode,
-        sender_vpa: transaction.sender_vpa,
-        utr: transaction.utr,
-        txn_date: transaction.txn_date,
-        created_at: transaction.created_at,
+        order_id: transaction.order_id, txn_id: transaction.txn_id,
+        amount: transaction.amount, fees: transaction.fees,
+        settle_amount: transaction.settle_amount, status: transaction.status,
+        payment_mode: transaction.payment_mode, sender_vpa: transaction.sender_vpa,
+        utr: transaction.utr, txn_date: transaction.txn_date, created_at: transaction.created_at,
       },
     });
   } catch (err) {
@@ -206,7 +192,6 @@ export const getPaymentStatus = async (req, res, next) => {
 
 /**
  * GET /api/payment/transactions
- * List all transactions with filters, search, sorting.
  */
 export const listTransactions = async (req, res, next) => {
   try {
@@ -214,11 +199,9 @@ export const listTransactions = async (req, res, next) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
-
     const { status, date_from, date_to, min_amount, max_amount, search, sort_by, sort_order } = req.query;
 
     const where = { merchant_id: merchantId };
-
     if (status) where.status = status;
     if (date_from || date_to) {
       where.created_at = {};
@@ -243,21 +226,13 @@ export const listTransactions = async (req, res, next) => {
     const orderDir = sort_order === 'ASC' ? 'ASC' : 'DESC';
 
     const { count, rows } = await Transaction.findAndCountAll({
-      where,
-      order: [[orderField, orderDir]],
-      limit,
-      offset,
+      where, order: [[orderField, orderDir]], limit, offset,
       attributes: { exclude: ['callback_url'] },
     });
 
     return successResponse(res, 200, 'Transactions retrieved.', {
       transactions: rows,
-      pagination: {
-        total: count,
-        page,
-        limit,
-        total_pages: Math.ceil(count / limit),
-      },
+      pagination: { total: count, page, limit, total_pages: Math.ceil(count / limit) },
     });
   } catch (err) {
     next(err);
@@ -266,13 +241,11 @@ export const listTransactions = async (req, res, next) => {
 
 /**
  * GET /api/payment/transactions/export
- * Export transactions as CSV.
  */
 export const exportTransactions = async (req, res, next) => {
   try {
     const merchantId = req.merchant.id;
     const { status, date_from, date_to, min_amount, max_amount } = req.query;
-
     const where = { merchant_id: merchantId };
     if (status) where.status = status;
     if (date_from || date_to) {
@@ -285,16 +258,11 @@ export const exportTransactions = async (req, res, next) => {
       if (min_amount) where.amount[Op.gte] = parseFloat(min_amount);
       if (max_amount) where.amount[Op.lte] = parseFloat(max_amount);
     }
-
     const transactions = await Transaction.findAll({
-      where,
-      order: [['created_at', 'DESC']],
-      attributes: { exclude: ['callback_url'] },
-      raw: true,
+      where, order: [['created_at', 'DESC']],
+      attributes: { exclude: ['callback_url'] }, raw: true,
     });
-
     const csv = exportTransactionsCSV(transactions);
-
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=transactions.csv');
     return res.send(csv);
