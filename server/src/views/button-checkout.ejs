@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= button.label %> - <%= merchant.business_name %></title>
+  <link rel="stylesheet" href="/static/css/checkout.css">
+  <style>
+    :root { --theme-color: <%= button.style?.bg_color || '#3B82F6' %>; }
+  </style>
+</head>
+<body>
+  <div class="checkout-container">
+    <div class="checkout-card">
+      <div class="merchant-header">
+        <% if (merchant.logo_url) { %>
+          <img src="<%= merchant.logo_url %>" alt="<%= merchant.business_name %>" class="merchant-logo">
+        <% } %>
+        <h1 class="merchant-name"><%= merchant.business_name %></h1>
+      </div>
+
+      <div class="payment-info">
+        <h2 class="payment-title"><%= button.label %></h2>
+        <div class="amount-display">
+          <span class="currency">&#8377;</span>
+          <span class="amount"><%= parseFloat(button.amount).toFixed(2) %></span>
+        </div>
+      </div>
+
+      <form id="paymentForm" class="payment-form">
+        <div class="form-group">
+          <label for="name">Your Name</label>
+          <input type="text" id="name" name="name" placeholder="Enter your name">
+        </div>
+        <div class="form-group">
+          <label for="email">Email (optional)</label>
+          <input type="email" id="email" name="email" placeholder="your@email.com">
+        </div>
+
+        <button type="submit" id="payBtn" class="pay-button"
+          style="background: var(--theme-color); color: <%= button.style?.text_color || '#fff' %>;">
+          <%= button.label %> &mdash; &#8377;<%= parseFloat(button.amount).toFixed(2) %>
+        </button>
+      </form>
+
+      <div id="message" class="message" style="display:none;"></div>
+
+      <div class="footer">
+        <p>Secured by <strong>Boomlex Payment Gateway</strong> &bull; Zero UPI Fees</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('payBtn');
+      const msg = document.getElementById('message');
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+
+      try {
+        const body = {
+          name: document.getElementById('name').value,
+          email: document.getElementById('email').value,
+        };
+
+        const res = await fetch('<%= baseUrl %>/pay/button/<%= button.id %>/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const data = await res.json();
+
+        if (data.success && data.data?.gateway_response?.payment_url) {
+          window.location.href = data.data.gateway_response.payment_url;
+        } else if (data.success) {
+          msg.style.display = 'block';
+          msg.className = 'message success';
+          msg.textContent = 'Payment initiated. Please complete it in your UPI app.';
+        } else {
+          msg.style.display = 'block';
+          msg.className = 'message error';
+          msg.textContent = data.message || 'Payment failed. Please try again.';
+          btn.disabled = false;
+          btn.textContent = '<%= button.label %>';
+        }
+      } catch (err) {
+        msg.style.display = 'block';
+        msg.className = 'message error';
+        msg.textContent = 'Something went wrong. Please try again.';
+        btn.disabled = false;
+        btn.textContent = '<%= button.label %>';
+      }
+    });
+  </script>
+</body>
+</html>

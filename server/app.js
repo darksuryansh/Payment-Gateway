@@ -97,9 +97,10 @@ app.use('/api/refunds', refundRoutes);
 app.use('/api/splits', splitRoutes);
 app.use('/api/team', teamRoutes);
 
-// --- Public Routes (Hosted Payment Pages) ---
+// --- Public Routes (Hosted Payment Pages & Buttons) ---
 app.use('/', paymentPageRoutes);
 app.use('/', paymentLinkRoutes);
+app.use('/', paymentButtonRoutes);
 
 // --- 404 Handler ---
 app.use((req, res) => {
