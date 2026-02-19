@@ -1,11 +1,16 @@
-import { PaymentButton } from '../models/pg/index.js';
+import { PaymentButton, Merchant, Transaction } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
+import { processPayment } from '../services/bharatEasy.service.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const generateEmbedCode = (button, baseUrl) => {
+  const bg = button.style?.bg_color || '#3B82F6';
+  const color = button.style?.text_color || '#fff';
+  const radius = button.style?.border_radius || '6px';
   return `<!-- Boomlex Payment Button -->
 <div id="boomlex-btn-${button.id}">
-  <button onclick="window.open('${baseUrl}/pay/button/${button.id}','_blank','width=450,height=600')"
-    style="background:${button.style.color || '#000'};color:#fff;padding:12px 24px;border:none;border-radius:${button.style.borderRadius || '4px'};cursor:pointer;font-size:16px;">
+  <button onclick="window.open('${baseUrl}/pay/button/${button.id}','_blank','width=460,height=620')"
+    style="background:${bg};color:${color};padding:12px 24px;border:none;border-radius:${radius};cursor:pointer;font-size:15px;font-weight:600;">
     ${button.label}
   </button>
 </div>`;
@@ -29,9 +34,7 @@ export const createPaymentButton = async (req, res, next) => {
     const button_code = generateEmbedCode(button, process.env.CALLBACK_BASE_URL);
     await button.update({ button_code });
 
-    return successResponse(res, 201, 'Payment button created.', {
-      payment_button: button,
-    });
+    return successResponse(res, 201, 'Payment button created.', { payment_button: button });
   } catch (err) {
     next(err);
   }
@@ -113,7 +116,75 @@ export const getEmbed = async (req, res, next) => {
     if (!button) return errorResponse(res, 404, 'Payment button not found.');
 
     return successResponse(res, 200, 'Embed code retrieved.', {
-      button_code: button.button_code,
+      embed_code: button.button_code,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /pay/button/:id — Public: render checkout page for payment button
+ */
+export const renderButtonCheckout = async (req, res, next) => {
+  try {
+    const button = await PaymentButton.findOne({
+      where: { id: req.params.id, is_active: true },
+      include: [{ model: Merchant, as: 'merchant', attributes: ['business_name', 'logo_url'] }],
+    });
+
+    if (!button) {
+      return res.status(404).render('payment-failed', {
+        title: 'Button Not Found',
+        message: 'This payment button does not exist or is no longer active.',
+      });
+    }
+
+    res.render('button-checkout', {
+      button,
+      merchant: button.merchant,
+      baseUrl: process.env.CALLBACK_BASE_URL,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /pay/button/:id/initiate — Public: initiate payment from button popup
+ */
+export const initiateButtonPayment = async (req, res, next) => {
+  try {
+    const button = await PaymentButton.findOne({
+      where: { id: req.params.id, is_active: true },
+    });
+
+    if (!button) return errorResponse(res, 404, 'Payment button not found.');
+
+    const orderId = `ORD${uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase()}`;
+
+    const transaction = await Transaction.create({
+      merchant_id: button.merchant_id,
+      order_id: orderId,
+      amount: button.amount,
+      sender_note: button.label,
+      callback_url: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      status: 'PENDING',
+    });
+
+    const gatewayResponse = await processPayment({
+      orderId,
+      txnAmount: button.amount,
+      txnNote: button.label,
+      callbackUrl: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+    });
+
+    // Redirect to success/cancel URL after payment completes if configured
+    return successResponse(res, 201, 'Payment initiated.', {
+      order_id: orderId,
+      transaction_id: transaction.id,
+      gateway_response: gatewayResponse,
+      redirect_url: button.redirect_url || null,
     });
   } catch (err) {
     next(err);
