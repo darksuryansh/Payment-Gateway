@@ -81,3 +81,24 @@ export const retryFailedWebhooks = async () => {
     });
   }
 };
+
+/**
+ * Trigger all active webhooks for a merchant for a given event.
+ * Called internally after payment/refund/settlement events.
+ */
+export const triggerMerchantWebhooks = async (merchantId, event, payload) => {
+  try {
+    const webhooks = await Webhook.findAll({
+      where: { merchant_id: merchantId, is_active: true },
+    });
+
+    // Fire all matching webhooks in parallel (non-blocking)
+    const deliveries = webhooks
+      .filter((wh) => wh.events.includes(event))
+      .map((wh) => deliverWebhook(wh.id, event, payload));
+
+    await Promise.allSettled(deliveries);
+  } catch (err) {
+    console.error('[WEBHOOK] Failed to trigger webhooks for event', event, err.message);
+  }
+};
