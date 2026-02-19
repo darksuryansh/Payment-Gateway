@@ -1,17 +1,19 @@
 import { Router } from 'express';
 import {
   createPaymentLink, listPaymentLinks, getPaymentLink,
-  updatePaymentLink, deletePaymentLink, resolvePaymentLink,
+  updatePaymentLink, deletePaymentLink,
+  renderPaymentLinkPage, initiatePaymentLinkPayment,
 } from '../controllers/paymentLink.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 
 const router = Router();
 
-// Public route — resolve short URL
-router.get('/pay/link/:shortCode', resolvePaymentLink);
+// Public routes — hosted payment link pages
+router.get('/pay/link/:shortCode', renderPaymentLinkPage);
+router.post('/pay/link/:shortCode/initiate', initiatePaymentLinkPayment);
 
-// Authenticated routes
+// Authenticated management routes
 router.post('/', authenticate, validate({
   amount: { required: true, type: 'number' },
 }), createPaymentLink);

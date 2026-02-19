@@ -1,13 +1,18 @@
 import { Router } from 'express';
 import {
   createPaymentButton, listPaymentButtons, updatePaymentButton,
-  deletePaymentButton, getEmbed,
+  deletePaymentButton, getEmbed, renderButtonCheckout, initiateButtonPayment,
 } from '../controllers/paymentButton.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 
 const router = Router();
 
+// ─── Public routes (no auth) ─────────────────────────────────────────────────
+router.get('/pay/button/:id', renderButtonCheckout);
+router.post('/pay/button/:id/initiate', initiateButtonPayment);
+
+// ─── Authenticated management routes ─────────────────────────────────────────
 router.use(authenticate);
 
 router.post('/', validate({
