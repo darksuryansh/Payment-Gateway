@@ -3,6 +3,7 @@ import { expirePaymentLinks } from '../services/paymentLink.service.js';
 import { checkOverdueInvoices } from '../services/invoice.service.js';
 import { processRecurringPayments, handleRetries } from '../services/subscription.service.js';
 import { retryFailedWebhooks } from '../services/webhook.service.js';
+import { createDailySettlements, processSettlements } from '../services/settlement.service.js';
 
 export const initCronJobs = () => {
   // Every hour: expire payment links & check overdue invoices
@@ -22,13 +23,30 @@ export const initCronJobs = () => {
     }
   });
 
-  // Every day at midnight: process recurring payments
-  cron.schedule('0 0 * * *', async () => {
+  // Every day at 00:05: process recurring subscription payments
+  cron.schedule('5 0 * * *', async () => {
     try {
       const processed = await processRecurringPayments();
       console.log(`[CRON] Processed ${processed} recurring payments.`);
     } catch (err) {
       console.error('[CRON] Error processing recurring payments:', err.message);
+    }
+  });
+
+  // Every day at 01:00: create settlement records for previous day's transactions
+  cron.schedule('0 1 * * *', async () => {
+    try {
+      const created = await createDailySettlements();
+      console.log(`[CRON] Created ${created} settlement records.`);
+    } catch (err) {
+      console.error('[CRON] Error creating settlements:', err.message);
+    }
+
+    try {
+      const processed = await processSettlements();
+      if (processed > 0) console.log(`[CRON] Marked ${processed} settlements as PROCESSED (T+2).`);
+    } catch (err) {
+      console.error('[CRON] Error processing settlements:', err.message);
     }
   });
 

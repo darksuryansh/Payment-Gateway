@@ -1,9 +1,10 @@
 import { Op } from 'sequelize';
-import { Invoice, PaymentLink } from '../models/pg/index.js';
+import { Invoice, PaymentLink, Merchant } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { generateInvoiceNumber } from '../services/invoice.service.js';
 import { generateShortCode } from '../services/paymentLink.service.js';
 import NotificationLog from '../models/mongo/NotificationLog.js';
+import { sendInvoiceEmail } from '../services/email.service.js';
 
 /**
  * POST /api/invoices
@@ -152,6 +153,20 @@ export const sendInvoice = async (req, res, next) => {
       payment_link_id: paymentLink.id,
     });
 
+    const paymentUrl = `${process.env.CALLBACK_BASE_URL}/pay/link/${short_url}`;
+    const merchant = await Merchant.findByPk(req.merchant.id, { attributes: ['business_name'] });
+
+    // Send email notification (non-blocking)
+    sendInvoiceEmail({
+      to: invoice.customer_email,
+      customerName: invoice.customer_name,
+      invoiceNumber: invoice.invoice_number,
+      amount: invoice.total_amount,
+      paymentUrl,
+      merchantName: merchant?.business_name || 'Merchant',
+      dueDate: invoice.due_date,
+    }).catch((err) => console.error('[INVOICE EMAIL]', err.message));
+
     // Log notification
     await NotificationLog.create({
       merchant_id: req.merchant.id,
@@ -164,7 +179,7 @@ export const sendInvoice = async (req, res, next) => {
 
     return successResponse(res, 200, 'Invoice sent.', {
       invoice,
-      payment_url: `${process.env.CALLBACK_BASE_URL}/pay/link/${short_url}`,
+      payment_url: paymentUrl,
     });
   } catch (err) {
     next(err);
