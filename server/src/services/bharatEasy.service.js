@@ -35,12 +35,16 @@ export const processPayment = async ({ orderId, txnAmount, txnNote, callbackUrl 
 
   const url = NODE_ENV === 'development' ? BHARATEASY_TEST_URL : BHARATEASY_PROCESS_URL;
 
-  const response = await axios.post(url, new URLSearchParams(payload), {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    timeout: 30000,
-  });
-
-  return response.data;
+  try {
+    const response = await axios.post(url, new URLSearchParams(payload), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 30000,
+    });
+    return response.data;
+  } catch (err) {
+    console.error('[BharatEasy] Payment request failed:', err.response?.data || err.message);
+    throw err;
+  }
 };
 
 /**

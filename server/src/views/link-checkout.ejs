@@ -84,7 +84,7 @@
         const amountInput = document.getElementById('amount');
         if (amountInput) body.amount = parseFloat(amountInput.value);
 
-        const res = await fetch('<%= baseUrl %>/pay/link/<%= link.short_url %>/initiate', {
+        const res = await fetch('/pay/link/<%= link.short_url %>/initiate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -92,13 +92,22 @@
 
         const data = await res.json();
 
-        if (data.success && data.data?.gateway_response?.payment_url) {
-          window.location.href = data.data.gateway_response.payment_url;
-        } else if (data.success) {
-          msg.style.display = 'block';
-          msg.className = 'message success';
-          msg.textContent = 'Payment initiated. Please complete it in your UPI app.';
-        } else {
+        if (data.success && data.data?.gateway_url && data.data?.gateway_payload) {
+          // Create a hidden form and POST directly to BharatEasy
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = data.data.gateway_url;
+          for (const [key, value] of Object.entries(data.data.gateway_payload)) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+          }
+          document.body.appendChild(form);
+          form.submit();
+          return;
+        } else if (!data.success) {
           msg.style.display = 'block';
           msg.className = 'message error';
           msg.textContent = data.message || 'Payment failed. Please try again.';

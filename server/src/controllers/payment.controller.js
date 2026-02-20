@@ -29,7 +29,7 @@ export const initiatePayment = async (req, res, next) => {
       orderId,
       txnAmount: amount,
       txnNote: note || 'Payment',
-      callbackUrl: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      callbackUrl: `${process.env.CALLBACK_BASE_URL}/api/payment/callback?orderId=${orderId}`,
     });
 
     await ApiLog.create({
@@ -61,29 +61,68 @@ export const initiatePayment = async (req, res, next) => {
  */
 export const paymentCallback = async (req, res, next) => {
   try {
-    const { status, checksum, orderId } = req.body;
+    const callbackData = { ...req.query, ...req.body };
+    console.log('[Callback] BharatEasy callback data:', JSON.stringify(callbackData, null, 2));
+    const { status, checksum, orderId: bodyOrderId, order_id: bodySnakeOrderId } = callbackData;
+    const orderId = req.query.orderId || bodyOrderId || bodySnakeOrderId;
+
+    if (!orderId) return errorResponse(res, 400, 'Missing orderId in callback payload.');
 
     const transaction = await Transaction.findOne({ where: { order_id: orderId } });
     if (!transaction) return errorResponse(res, 404, 'Transaction not found for this order.');
 
     // Idempotency: skip if already processed
     if (transaction.status === 'COMPLETED' || transaction.status === 'FAILED') {
+      if (req.headers.accept?.includes('text/html')) {
+        const view = transaction.status === 'COMPLETED' ? 'payment-success' : 'payment-failed';
+        return res.status(200).render(view, {
+          title: transaction.status === 'COMPLETED' ? 'Payment Successful' : 'Payment Failed',
+          message: transaction.status === 'COMPLETED'
+            ? 'Your payment has been processed successfully.'
+            : 'Your payment could not be processed.',
+          order_id: orderId,
+        });
+      }
       return successResponse(res, 200, 'Already processed.');
     }
 
-    // Verify checksum for SUCCESS
-    if (status === 'SUCCESS' && checksum) {
+    // FAILED callback — mark as failed, no need to call status API
+    if (status !== 'SUCCESS') {
+      await transaction.update({ status: 'FAILED' });
+      await ApiLog.create({
+        merchant_id: transaction.merchant_id, endpoint: '/api/payment/callback',
+        method: 'POST', request_body: req.body, response_body: { status: 'FAILED', message: req.body.message },
+        status_code: 200, ip_address: req.ip,
+      });
+
+      triggerMerchantWebhooks(transaction.merchant_id, 'payment.failed', {
+        event: 'payment.failed', order_id: orderId, transaction_id: transaction.id,
+        amount: transaction.amount, status: 'FAILED',
+      }).catch((err) => console.error('[WEBHOOK]', err.message));
+
+      // If browser request, render HTML page; otherwise return JSON
+      if (req.headers.accept?.includes('text/html')) {
+        return res.status(200).render('payment-failed', {
+          title: 'Payment Failed',
+          message: req.body.message || 'Your payment could not be processed. Please try again.',
+        });
+      }
+      return successResponse(res, 200, 'Callback processed.');
+    }
+
+    // SUCCESS callback — verify checksum (skip if "false" string from gateway)
+    if (checksum && checksum !== 'false') {
       const isValid = verifyCallbackChecksum({
         checksum, orderId, txnAmount: String(transaction.amount),
       });
       if (!isValid) {
-        console.error(`Checksum failed for order: ${orderId}`);
+        console.error(`Checksum verification failed for order: ${orderId}`);
         await transaction.update({ status: 'FAILED' });
         return errorResponse(res, 400, 'Checksum verification failed.');
       }
     }
 
-    // Fetch full details from BharatEasy
+    // Fetch full transaction details from BharatEasy status API
     const statusResponse = await checkTransactionStatus(orderId);
     let finalStatus = 'FAILED';
     let updateData = { status: 'FAILED' };
@@ -139,6 +178,19 @@ export const paymentCallback = async (req, res, next) => {
       txn_date: transaction.txn_date,
     }).catch((err) => console.error('[WEBHOOK]', err.message));
 
+    // If browser request, render HTML page; otherwise return JSON
+    if (req.headers.accept?.includes('text/html')) {
+      if (finalStatus === 'COMPLETED') {
+        return res.status(200).render('payment-success', {
+          message: 'Your payment has been processed successfully.',
+          order_id: orderId,
+        });
+      }
+      return res.status(200).render('payment-failed', {
+        title: 'Payment Failed',
+        message: 'Your payment could not be processed. Please try again.',
+      });
+    }
     return successResponse(res, 200, 'Callback processed.');
   } catch (err) {
     next(err);

@@ -19,6 +19,7 @@ router.post('/initiate', authenticateApiKey, validate({
 
 // Callback from BharatEasy - NO auth (external server)
 router.post('/callback', paymentCallback);
+router.get('/callback', paymentCallback);
 
 // Status check - JWT auth
 router.get('/status/:orderId', authenticate, getPaymentStatus);

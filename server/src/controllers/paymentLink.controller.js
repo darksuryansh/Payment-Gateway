@@ -2,8 +2,8 @@ import { Op } from 'sequelize';
 import { PaymentLink, Merchant, Transaction } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { generateShortCode } from '../services/paymentLink.service.js';
-import { processPayment } from '../services/bharatEasy.service.js';
 import { v4 as uuidv4 } from 'uuid';
+import { generateChecksum } from '../utils/checksum.js';
 
 export const createPaymentLink = async (req, res, next) => {
   try {
@@ -113,14 +113,30 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
       sender_note: link.title || link.description || 'Payment Link',
       callback_url: process.env.CALLBACK_BASE_URL + '/api/payment/callback', status: 'PENDING',
     });
-    const gatewayResponse = await processPayment({
-      orderId, txnAmount: amount,
-      txnNote: link.title || link.description || 'Payment',
-      callbackUrl: process.env.CALLBACK_BASE_URL + '/api/payment/callback',
+    const txnAmount = String(amount);
+    const checksum = generateChecksum({
+      orderId,
+      txnAmount,
+      token: process.env.BHARATEASY_TOKEN,
     });
-    if (!link.is_partial) await link.update({ status: 'PAID' });
+    const callbackUrl = process.env.CALLBACK_BASE_URL + '/api/payment/callback?orderId=' + orderId;
+    const gatewayUrl = process.env.NODE_ENV === 'development'
+      ? process.env.BHARATEASY_TEST_URL
+      : process.env.BHARATEASY_PROCESS_URL;
+
     return successResponse(res, 201, 'Payment initiated.', {
-      order_id: orderId, transaction_id: transaction.id, gateway_response: gatewayResponse,
+      order_id: orderId,
+      transaction_id: transaction.id,
+      gateway_url: gatewayUrl,
+      gateway_payload: {
+        upiuid: process.env.BHARATEASY_UPI_UID,
+        token: process.env.BHARATEASY_TOKEN,
+        orderId,
+        txnAmount,
+        txnNote: link.title || link.description || 'Payment',
+        callback_url: callbackUrl,
+        checksum,
+      },
     });
   } catch (err) { next(err); }
 };
