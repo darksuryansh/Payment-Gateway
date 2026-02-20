@@ -115,23 +115,26 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
       callback_url: baseUrl + '/api/payment/callback', status: 'PENDING',
     });
     const txnAmount = String(amount);
-    const checksum = generateChecksum({
+    const txnNote = link.title || link.description || 'Payment';
+    const callbackUrl = baseUrl + '/api/payment/callback?orderId=' + orderId;
+
+    // Generate checksum with all params (sorted alphabetically inside generateChecksum)
+    const checksumParams = {
+      upiuid: process.env.BHARATEASY_UPI_UID,
+      token: process.env.BHARATEASY_TOKEN,
       orderId,
       txnAmount,
-      token: process.env.BHARATEASY_TOKEN,
-    });
-    const callbackUrl = baseUrl + '/api/payment/callback?orderId=' + orderId;
+      txnNote,
+      callback_url: callbackUrl,
+    };
+    const checksum = generateChecksum(checksumParams);
+
     const gatewayUrl = process.env.NODE_ENV === 'development'
       ? process.env.BHARATEASY_TEST_URL
       : process.env.BHARATEASY_PROCESS_URL;
 
     const gatewayPayload = {
-      upiuid: process.env.BHARATEASY_UPI_UID,
-      token: process.env.BHARATEASY_TOKEN,
-      orderId,
-      txnAmount,
-      txnNote: link.title || link.description || 'Payment',
-      callback_url: callbackUrl,
+      ...checksumParams,
       checksum,
     };
 

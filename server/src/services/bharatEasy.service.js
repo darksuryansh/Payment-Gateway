@@ -6,6 +6,7 @@ dotenv.config();
 
 const {
   BHARATEASY_TOKEN,
+  BHARATEASY_SECRET_KEY,
   BHARATEASY_UPI_UID,
   BHARATEASY_PROCESS_URL,
   BHARATEASY_STATUS_URL,
@@ -17,19 +18,21 @@ const {
  * Initiate a UPI payment via TheBharatEasy gateway.
  */
 export const processPayment = async ({ orderId, txnAmount, txnNote, callbackUrl }) => {
-  const checksum = generateChecksum({
-    orderId,
-    txnAmount: String(txnAmount),
-    token: BHARATEASY_TOKEN,
-  });
+  const txnAmountStr = String(txnAmount);
 
-  const payload = {
+  // Generate checksum from all params (excluding checksum itself) — sorted alphabetically by key
+  const checksumParams = {
     upiuid: BHARATEASY_UPI_UID,
     token: BHARATEASY_TOKEN,
     orderId,
-    txnAmount: String(txnAmount),
+    txnAmount: txnAmountStr,
     txnNote,
     callback_url: callbackUrl,
+  };
+  const checksum = generateChecksum(checksumParams);
+
+  const payload = {
+    ...checksumParams,
     checksum,
   };
 
@@ -70,14 +73,15 @@ export const checkTransactionStatus = async (orderId) => {
 
 /**
  * Verify a callback response checksum from BharatEasy.
+ * Uses the new verifyChecksum that decrypts AES-128-CBC and compares hash+salt.
  */
 export const verifyCallbackChecksum = (callbackData) => {
-  const { checksum, orderId, txnAmount } = callbackData;
-  if (!checksum) return false;
+  const { checksum, ...rest } = callbackData;
+  if (!checksum || checksum === 'false') return false;
 
-  return verifyChecksum(checksum, {
-    orderId,
-    txnAmount: String(txnAmount),
-    token: BHARATEASY_TOKEN,
-  });
+  // Remove CHECKSUMHASH if present (BharatEasy SDK convention)
+  const params = { ...rest };
+  delete params.CHECKSUMHASH;
+
+  return verifyChecksum(params, BHARATEASY_SECRET_KEY, checksum);
 };
