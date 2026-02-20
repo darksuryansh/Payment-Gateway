@@ -69,9 +69,11 @@ export default function PaymentLinksPage() {
     e.preventDefault();
     setCreating(true);
     try {
+      const { expires_at, ...rest } = form;
       await api.post("/payment-links", {
-        ...form,
+        ...rest,
         amount: parseFloat(form.amount),
+        expires_at: expires_at ? new Date(expires_at).toISOString() : null,
       });
       setShowCreate(false);
       setForm({ title: "", amount: "", description: "", customer_name: "", customer_email: "", customer_phone: "", expires_at: "" });
