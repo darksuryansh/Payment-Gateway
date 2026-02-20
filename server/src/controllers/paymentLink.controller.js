@@ -89,7 +89,7 @@ export const renderPaymentLinkPage = async (req, res, next) => {
         title: 'Link Unavailable', message: 'This payment link is ' + link.status.toLowerCase() + '.',
       });
     }
-    res.render('link-checkout', { link, merchant: link.merchant, baseUrl: process.env.CALLBACK_BASE_URL });
+    res.render('link-checkout', { link, merchant: link.merchant, baseUrl: (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '') });
   } catch (err) { next(err); }
 };
 
@@ -111,7 +111,7 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
     const transaction = await Transaction.create({
       merchant_id: link.merchant_id, order_id: orderId, amount,
       sender_note: link.title || link.description || 'Payment Link',
-      callback_url: process.env.CALLBACK_BASE_URL + '/api/payment/callback', status: 'PENDING',
+      callback_url: baseUrl + '/api/payment/callback', status: 'PENDING',
     });
     const txnAmount = String(amount);
     const checksum = generateChecksum({
@@ -119,24 +119,30 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
       txnAmount,
       token: process.env.BHARATEASY_TOKEN,
     });
-    const callbackUrl = process.env.CALLBACK_BASE_URL + '/api/payment/callback?orderId=' + orderId;
+    const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
+    const callbackUrl = baseUrl + '/api/payment/callback?orderId=' + orderId;
     const gatewayUrl = process.env.NODE_ENV === 'development'
       ? process.env.BHARATEASY_TEST_URL
       : process.env.BHARATEASY_PROCESS_URL;
+
+    const gatewayPayload = {
+      upiuid: process.env.BHARATEASY_UPI_UID,
+      token: process.env.BHARATEASY_TOKEN,
+      orderId,
+      txnAmount,
+      txnNote: link.title || link.description || 'Payment',
+      callback_url: callbackUrl,
+      checksum,
+    };
+
+    console.log('[PaymentLink] Gateway URL:', gatewayUrl);
+    console.log('[PaymentLink] Gateway payload:', JSON.stringify(gatewayPayload, null, 2));
 
     return successResponse(res, 201, 'Payment initiated.', {
       order_id: orderId,
       transaction_id: transaction.id,
       gateway_url: gatewayUrl,
-      gateway_payload: {
-        upiuid: process.env.BHARATEASY_UPI_UID,
-        token: process.env.BHARATEASY_TOKEN,
-        orderId,
-        txnAmount,
-        txnNote: link.title || link.description || 'Payment',
-        callback_url: callbackUrl,
-        checksum,
-      },
+      gateway_payload: gatewayPayload,
     });
   } catch (err) { next(err); }
 };

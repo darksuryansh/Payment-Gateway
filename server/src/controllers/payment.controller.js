@@ -21,7 +21,7 @@ export const initiatePayment = async (req, res, next) => {
       order_id: orderId,
       amount,
       sender_note: note || 'Payment',
-      callback_url: callback_url || `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      callback_url: callback_url || `${(process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '')}/api/payment/callback`,
       status: 'PENDING',
     });
 
@@ -29,7 +29,7 @@ export const initiatePayment = async (req, res, next) => {
       orderId,
       txnAmount: amount,
       txnNote: note || 'Payment',
-      callbackUrl: `${process.env.CALLBACK_BASE_URL}/api/payment/callback?orderId=${orderId}`,
+      callbackUrl: `${(process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '')}/api/payment/callback?orderId=${orderId}`,
     });
 
     await ApiLog.create({
@@ -86,12 +86,54 @@ export const paymentCallback = async (req, res, next) => {
       return successResponse(res, 200, 'Already processed.');
     }
 
+    // If no status at all (e.g. GET redirect from failed gateway), check transaction status
+    if (!status) {
+      try {
+        const statusResponse = await checkTransactionStatus(orderId);
+        if (statusResponse.status === 'SUCCESS' && statusResponse.result) {
+          const r = statusResponse.result;
+          const finalStatus = r.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
+          await transaction.update({
+            txn_id: r.txnId || null, bank_txn_id: r.bankTxnId || null,
+            fees: r.fees ? parseFloat(r.fees) : 0,
+            settle_amount: r.settle_amount ? parseFloat(r.settle_amount) : 0,
+            status: finalStatus, payment_mode: r.paymentMode || null,
+            sender_vpa: r.sender_vpa || null, utr: r.utr || null,
+            txn_date: r.txnDate ? new Date(r.txnDate) : null,
+          });
+          if (req.headers.accept?.includes('text/html')) {
+            const view = finalStatus === 'COMPLETED' ? 'payment-success' : 'payment-failed';
+            return res.status(200).render(view, {
+              title: finalStatus === 'COMPLETED' ? 'Payment Successful' : 'Payment Failed',
+              message: finalStatus === 'COMPLETED'
+                ? 'Your payment has been processed successfully.'
+                : 'Your payment could not be processed.',
+              order_id: orderId,
+            });
+          }
+          return successResponse(res, 200, 'Callback processed.', { status: finalStatus });
+        }
+      } catch (statusErr) {
+        console.error('[Callback] Status check failed for', orderId, statusErr.message);
+      }
+      // If status check also failed, mark as failed
+      await transaction.update({ status: 'FAILED' });
+      if (req.headers.accept?.includes('text/html')) {
+        return res.status(200).render('payment-failed', {
+          title: 'Payment Failed',
+          message: 'Your payment could not be processed. Please try again.',
+          order_id: orderId,
+        });
+      }
+      return successResponse(res, 200, 'Callback processed.', { status: 'FAILED' });
+    }
+
     // FAILED callback — mark as failed, no need to call status API
     if (status !== 'SUCCESS') {
       await transaction.update({ status: 'FAILED' });
       await ApiLog.create({
         merchant_id: transaction.merchant_id, endpoint: '/api/payment/callback',
-        method: 'POST', request_body: req.body, response_body: { status: 'FAILED', message: req.body.message },
+        method: req.method, request_body: req.body || {}, response_body: { status: 'FAILED', message: req.body?.message || 'Payment failed' },
         status_code: 200, ip_address: req.ip,
       });
 
@@ -104,7 +146,8 @@ export const paymentCallback = async (req, res, next) => {
       if (req.headers.accept?.includes('text/html')) {
         return res.status(200).render('payment-failed', {
           title: 'Payment Failed',
-          message: req.body.message || 'Your payment could not be processed. Please try again.',
+          message: req.body?.message || 'Your payment could not be processed. Please try again.',
+          order_id: orderId,
         });
       }
       return successResponse(res, 200, 'Callback processed.');
