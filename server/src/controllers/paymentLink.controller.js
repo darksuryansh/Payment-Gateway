@@ -108,6 +108,7 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
       return errorResponse(res, 400, 'Minimum amount is Rs.' + link.min_amount + '.');
     }
     const orderId = 'ORD' + uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase();
+    const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
     const transaction = await Transaction.create({
       merchant_id: link.merchant_id, order_id: orderId, amount,
       sender_note: link.title || link.description || 'Payment Link',
@@ -119,7 +120,6 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
       txnAmount,
       token: process.env.BHARATEASY_TOKEN,
     });
-    const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
     const callbackUrl = baseUrl + '/api/payment/callback?orderId=' + orderId;
     const gatewayUrl = process.env.NODE_ENV === 'development'
       ? process.env.BHARATEASY_TEST_URL
