@@ -12,11 +12,16 @@ export default function QRCodesPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ amount: "", note: "", format: "png" });
 
-  const generateStaticQR = async () => {
+  const generateStaticQR = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post("/qrcodes/static", { format: form.format });
+      const res = await api.post("/qrcodes/static", {
+        amount: form.amount ? parseFloat(form.amount) : undefined,
+        note: form.note || undefined,
+        format: form.format,
+      });
       setQrImage(res.data.data.qr_image);
       setQrData(res.data.data.qr_data);
     } catch (err: unknown) {
@@ -91,17 +96,39 @@ export default function QRCodesPage() {
           )}
 
           {mode === "static" ? (
-            <div className="space-y-3">
-              <p className="text-sm text-gray-500">Generate a static QR code linked to your UPI account. Customers can scan and pay any amount.</p>
+            <form onSubmit={generateStaticQR} className="space-y-3">
+              <p className="text-sm text-gray-500">Generate a QR code for a specific amount. Payment is tracked automatically on your dashboard.</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  required
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  placeholder="Enter amount"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                <input
+                  value={form.note}
+                  onChange={(e) => setForm({ ...form, note: e.target.value })}
+                  placeholder="Payment for..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
               <button
-                onClick={generateStaticQR}
-                disabled={loading}
+                type="submit"
+                disabled={loading || !form.amount}
                 className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 <QrCode size={16} />
-                {loading ? "Generating..." : "Generate Static QR"}
+                {loading ? "Generating..." : "Generate QR Code"}
               </button>
-            </div>
+            </form>
           ) : (
             <form onSubmit={generateDynamicQR} className="space-y-3">
               <p className="text-sm text-gray-500">Generate a QR code with a fixed amount. Requires a primary UPI account.</p>
