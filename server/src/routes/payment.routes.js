@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import {
   initiatePayment,
-  paymentCallback,
+  paytmWebhook,
   getPaymentStatus,
   listTransactions,
   exportTransactions,
@@ -17,9 +17,8 @@ router.post('/initiate', authenticateApiKey, validate({
   note: { required: false, min: 2 },
 }), initiatePayment);
 
-// Callback from BharatEasy - NO auth (external server)
-router.post('/callback', paymentCallback);
-router.get('/callback', paymentCallback);
+// Paytm webhook - NO auth (external Paytm callback)
+router.post('/webhooks/paytm', paytmWebhook);
 
 // Status check - JWT auth
 router.get('/status/:orderId', authenticate, getPaymentStatus);

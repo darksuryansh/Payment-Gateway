@@ -38,7 +38,7 @@ export default (sequelize) => {
       defaultValue: 0,
     },
     status: {
-      type: DataTypes.ENUM('PENDING', 'COMPLETED', 'FAILED'),
+      type: DataTypes.ENUM('PENDING', 'PENDING_VERIFICATION', 'COMPLETED', 'FAILED'),
       defaultValue: 'PENDING',
     },
     payment_mode: {
@@ -83,6 +83,19 @@ export default (sequelize) => {
       type: DataTypes.UUID,
       allowNull: true,
       references: { model: 'split_rules', key: 'id' },
+    },
+    utr_number: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    verified_by: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'merchants', key: 'id' },
+    },
+    verified_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
     },
     environment: {
       type: DataTypes.ENUM('test', 'live'),

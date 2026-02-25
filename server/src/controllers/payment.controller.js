@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
-import { Transaction, Invoice, sequelize } from '../models/pg/index.js';
-import { processPayment, checkTransactionStatus, verifyCallbackChecksum } from '../services/bharatEasy.service.js';
+import { Transaction, Invoice, Merchant, sequelize } from '../models/pg/index.js';
+import { initiateTransaction, checkTransactionStatus, verifyPaytmCallback } from '../services/paytm.service.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { exportTransactionsCSV } from '../services/export.service.js';
 import { triggerMerchantWebhooks } from '../services/webhook.service.js';
@@ -9,45 +9,65 @@ import ApiLog from '../models/mongo/ApiLog.js';
 
 /**
  * POST /api/payment/initiate
+ * Initiates a payment via Paytm using the merchant's own Paytm credentials.
  */
 export const initiatePayment = async (req, res, next) => {
   try {
     const { amount, note, callback_url } = req.body;
-    const merchantId = req.merchant.id;
+    const merchant = req.merchant;
+
+    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+      return errorResponse(res, 400, 'Paytm is not configured. Please add your Paytm credentials in settings.');
+    }
+
     const orderId = `ORD${uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase()}`;
+    const callbackUrl = callback_url || `${(process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '')}/api/webhooks/paytm`;
 
     const transaction = await Transaction.create({
-      merchant_id: merchantId,
+      merchant_id: merchant.id,
       order_id: orderId,
       amount,
       sender_note: note || 'Payment',
-      callback_url: callback_url || `${(process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '')}/api/payment/callback`,
+      callback_url: callbackUrl,
       status: 'PENDING',
     });
 
-    const bharatEasyResponse = await processPayment({
+    const paytmResponse = await initiateTransaction({
+      merchant,
       orderId,
-      txnAmount: amount,
-      txnNote: note || 'Payment',
-      callbackUrl: `${(process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '')}/api/payment/callback?orderId=${orderId}`,
+      amount,
+      callbackUrl,
     });
 
     await ApiLog.create({
-      merchant_id: merchantId, endpoint: '/order/process', method: 'POST',
-      request_body: { orderId, txnAmount: amount, txnNote: note },
-      response_body: bharatEasyResponse, status_code: 200, ip_address: req.ip,
+      merchant_id: merchant.id,
+      endpoint: '/theia/api/v1/initiateTransaction',
+      method: 'POST',
+      request_body: { orderId, amount, note },
+      response_body: paytmResponse,
+      status_code: 200,
+      ip_address: req.ip,
     });
 
     return successResponse(res, 201, 'Payment initiated successfully.', {
-      order_id: orderId, transaction_id: transaction.id,
-      amount, status: 'PENDING', gateway_response: bharatEasyResponse,
+      order_id: orderId,
+      transaction_id: transaction.id,
+      amount,
+      status: 'PENDING',
+      txn_token: paytmResponse.txnToken,
+      payment_url: paytmResponse.paymentUrl,
+      mid: paytmResponse.mid,
     });
   } catch (err) {
     try {
       await ApiLog.create({
-        merchant_id: req.merchant?.id, endpoint: '/order/process', method: 'POST',
-        request_body: req.body, response_body: { error: err.message },
-        status_code: err.response?.status || 500, ip_address: req.ip,
+        merchant_id: req.merchant?.id,
+        endpoint: '/theia/api/v1/initiateTransaction',
+        method: 'POST',
+        request_body: req.body,
+        response_body: { error: err.message },
+        status_code: err.response?.status || 500,
+        ip_address: req.ip,
       });
     } catch (_) {}
     next(err);
@@ -55,183 +75,67 @@ export const initiatePayment = async (req, res, next) => {
 };
 
 /**
- * POST /api/payment/callback
- * Called by BharatEasy after payment. NOT authenticated.
- * Uses DB transaction for atomicity + idempotency guard.
+ * POST /api/webhooks/paytm
+ * Receives payment callbacks from Paytm. NOT authenticated (external webhook).
+ * Verifies checksum, updates transaction, triggers merchant webhooks.
  */
-export const paymentCallback = async (req, res, next) => {
+export const paytmWebhook = async (req, res, next) => {
   try {
-    const callbackData = { ...req.query, ...req.body };
-    console.log('[Callback] BharatEasy callback data:', JSON.stringify(callbackData, null, 2));
-    const { status, checksum, hash, message, orderId: bodyOrderId, order_id: bodySnakeOrderId } = callbackData;
-    const orderId = req.query.orderId || bodyOrderId || bodySnakeOrderId;
+    const callbackData = { ...req.body };
+    console.log('[Paytm Webhook] Data:', JSON.stringify(callbackData, null, 2));
 
-    if (!orderId) return errorResponse(res, 400, 'Missing orderId in callback payload.');
+    const { ORDERID, STATUS, TXNID, BANKTXNID, TXNAMOUNT, PAYMENTMODE, GATEWAYNAME, CHECKSUMHASH } = callbackData;
 
-    const transaction = await Transaction.findOne({ where: { order_id: orderId } });
+    if (!ORDERID) return errorResponse(res, 400, 'Missing ORDERID in webhook payload.');
+
+    const transaction = await Transaction.findOne({ where: { order_id: ORDERID } });
     if (!transaction) return errorResponse(res, 404, 'Transaction not found for this order.');
 
     // Idempotency: skip if already processed
     if (transaction.status === 'COMPLETED' || transaction.status === 'FAILED') {
-      if (req.headers.accept?.includes('text/html')) {
-        const view = transaction.status === 'COMPLETED' ? 'payment-success' : 'payment-failed';
-        return res.status(200).render(view, {
-          title: transaction.status === 'COMPLETED' ? 'Payment Successful' : 'Payment Failed',
-          message: transaction.status === 'COMPLETED'
-            ? 'Your payment has been processed successfully.'
-            : 'Your payment could not be processed.',
-          order_id: orderId,
-        });
-      }
       return successResponse(res, 200, 'Already processed.');
     }
 
-    // If no status at all (e.g. GET redirect from failed gateway), check transaction status
-    if (!status) {
-      try {
-        const statusResponse = await checkTransactionStatus(orderId);
-        if (statusResponse.status === 'SUCCESS' && statusResponse.result) {
-          const r = statusResponse.result;
-          const finalStatus = r.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
-          await transaction.update({
-            txn_id: r.txnId || null, bank_txn_id: r.bankTxnId || null,
-            fees: r.fees ? parseFloat(r.fees) : 0,
-            settle_amount: r.settle_amount ? parseFloat(r.settle_amount) : 0,
-            status: finalStatus, payment_mode: r.paymentMode || null,
-            sender_vpa: r.sender_vpa || null, utr: r.utr || null,
-            txn_date: r.txnDate ? new Date(r.txnDate) : null,
-          });
-          if (req.headers.accept?.includes('text/html')) {
-            const view = finalStatus === 'COMPLETED' ? 'payment-success' : 'payment-failed';
-            return res.status(200).render(view, {
-              title: finalStatus === 'COMPLETED' ? 'Payment Successful' : 'Payment Failed',
-              message: finalStatus === 'COMPLETED'
-                ? 'Your payment has been processed successfully.'
-                : 'Your payment could not be processed.',
-              order_id: orderId,
-            });
-          }
-          return successResponse(res, 200, 'Callback processed.', { status: finalStatus });
-        }
-      } catch (statusErr) {
-        console.error('[Callback] Status check failed for', orderId, statusErr.message);
-      }
-      // If status check also failed, mark as failed
-      await transaction.update({ status: 'FAILED' });
-      if (req.headers.accept?.includes('text/html')) {
-        return res.status(200).render('payment-failed', {
-          title: 'Payment Failed',
-          message: 'Your payment could not be processed. Please try again.',
-          order_id: orderId,
-        });
-      }
-      return successResponse(res, 200, 'Callback processed.', { status: 'FAILED' });
+    // Fetch merchant to get Paytm key for checksum verification
+    const merchant = await Merchant.findByPk(transaction.merchant_id, {
+      attributes: ['id', 'paytm_merchant_key'],
+    });
+
+    if (!merchant || !merchant.paytm_merchant_key) {
+      console.error(`[Paytm Webhook] No merchant key for merchant ${transaction.merchant_id}`);
+      return errorResponse(res, 500, 'Merchant Paytm configuration not found.');
     }
 
-    // FAILED callback — mark as failed, no need to call status API
-    if (status !== 'SUCCESS') {
-      await transaction.update({ status: 'FAILED' });
-      await ApiLog.create({
-        merchant_id: transaction.merchant_id, endpoint: '/api/payment/callback',
-        method: req.method, request_body: req.body || {}, response_body: { status: 'FAILED', message: req.body?.message || 'Payment failed' },
-        status_code: 200, ip_address: req.ip,
-      });
+    // Verify checksum
+    if (CHECKSUMHASH) {
+      const paramsForVerify = { ...callbackData };
+      delete paramsForVerify.CHECKSUMHASH;
 
-      triggerMerchantWebhooks(transaction.merchant_id, 'payment.failed', {
-        event: 'payment.failed', order_id: orderId, transaction_id: transaction.id,
-        amount: transaction.amount, status: 'FAILED',
-      }).catch((err) => console.error('[WEBHOOK]', err.message));
-
-      // If browser request, render HTML page; otherwise return JSON
-      if (req.headers.accept?.includes('text/html')) {
-        return res.status(200).render('payment-failed', {
-          title: 'Payment Failed',
-          message: req.body?.message || 'Your payment could not be processed. Please try again.',
-          order_id: orderId,
-        });
-      }
-      return successResponse(res, 200, 'Callback processed.');
-    }
-
-    // SUCCESS callback — verify checksum using hash field (matches txnResult.php flow)
-    // PHP flow: hash_decrypt($hash, $secret) → verifySignature($decrypted, $secret, $checksum)
-    let hashData = null;
-    if (checksum && checksum !== 'false') {
-      const result = verifyCallbackChecksum({ hash, checksum });
-      if (!result.verified) {
-        console.error(`Checksum verification failed for order: ${orderId}`);
+      const isValid = await verifyPaytmCallback(callbackData, merchant.paytm_merchant_key);
+      if (!isValid) {
+        console.error(`[Paytm Webhook] Checksum verification failed for order: ${ORDERID}`);
         await transaction.update({ status: 'FAILED' });
         return errorResponse(res, 400, 'Checksum verification failed.');
       }
-      hashData = result.data; // Parsed transaction details from decrypted hash
-      console.log('[Callback] Decrypted hash data:', JSON.stringify(hashData, null, 2));
     }
 
-    // Build update from decrypted hash data (primary) + status API (fallback/extra details)
-    let finalStatus = 'FAILED';
-    let updateData = { status: 'FAILED' };
+    // Determine final status
+    const finalStatus = STATUS === 'TXN_SUCCESS' ? 'COMPLETED' : 'FAILED';
 
-    // If hash decryption gave us transaction data, use it
-    if (hashData) {
-      finalStatus = hashData.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
-      updateData = {
-        txn_id: hashData.txnId || null,
-        bank_txn_id: hashData.bankTxnId || null,
-        fees: hashData.fees ? parseFloat(hashData.fees) : 0,
-        settle_amount: hashData.settle_amount ? parseFloat(hashData.settle_amount) : 0,
-        status: finalStatus,
-        payment_mode: hashData.paymentMode || null,
-        sender_vpa: hashData.sender_vpa || null,
-        sender_note: hashData.sender_note || null,
-        payee_vpa: hashData.payee_vpa || null,
-        utr: hashData.utr || null,
-        txn_date: hashData.txnDate ? new Date(hashData.txnDate) : null,
-      };
-    }
-
-    // Also fetch from BharatEasy status API for completeness / fallback
-    try {
-      const statusResponse = await checkTransactionStatus(orderId);
-      if (statusResponse.status === 'SUCCESS' && statusResponse.result) {
-        const r = statusResponse.result;
-        const apiStatus = r.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
-        // If hash data was missing or incomplete, use status API data
-        if (!hashData) {
-          finalStatus = apiStatus;
-          updateData = {
-            txn_id: r.txnId || null,
-            bank_txn_id: r.bankTxnId || null,
-            fees: r.fees ? parseFloat(r.fees) : 0,
-            settle_amount: r.settle_amount ? parseFloat(r.settle_amount) : 0,
-            status: finalStatus,
-            payment_mode: r.paymentMode || null,
-            sender_vpa: r.sender_vpa || null,
-            sender_note: r.sender_note || null,
-            payee_vpa: r.payee_vpa || null,
-            utr: r.utr || null,
-            txn_date: r.txnDate ? new Date(r.txnDate) : null,
-          };
-        } else {
-          // Fill in any fields that hash data might be missing
-          updateData.txn_id = updateData.txn_id || r.txnId || null;
-          updateData.bank_txn_id = updateData.bank_txn_id || r.bankTxnId || null;
-          updateData.utr = updateData.utr || r.utr || null;
-          updateData.payment_mode = updateData.payment_mode || r.paymentMode || null;
-          updateData.sender_vpa = updateData.sender_vpa || r.sender_vpa || null;
-          updateData.fees = updateData.fees || (r.fees ? parseFloat(r.fees) : 0);
-          updateData.settle_amount = updateData.settle_amount || (r.settle_amount ? parseFloat(r.settle_amount) : 0);
-        }
-      }
-    } catch (statusErr) {
-      console.error('[Callback] Status API check failed for', orderId, statusErr.message);
-      // Continue with hash data if available
-    }
+    const updateData = {
+      txn_id: TXNID || null,
+      bank_txn_id: BANKTXNID || null,
+      status: finalStatus,
+      payment_mode: PAYMENTMODE || null,
+      fees: callbackData.TXNFEE ? parseFloat(callbackData.TXNFEE) : 0,
+      settle_amount: TXNAMOUNT ? parseFloat(TXNAMOUNT) - (callbackData.TXNFEE ? parseFloat(callbackData.TXNFEE) : 0) : 0,
+      txn_date: callbackData.TXNDATE ? new Date(callbackData.TXNDATE) : new Date(),
+    };
 
     // Atomic DB update
     await sequelize.transaction(async (t) => {
       await transaction.update(updateData, { transaction: t });
 
-      // If completed and linked to an invoice, mark invoice as PAID
       if (finalStatus === 'COMPLETED' && transaction.invoice_id) {
         await Invoice.update(
           { status: 'PAID', amount_paid: transaction.amount },
@@ -240,14 +144,18 @@ export const paymentCallback = async (req, res, next) => {
       }
     });
 
-    // Log the callback
+    // Log the webhook
     await ApiLog.create({
-      merchant_id: transaction.merchant_id, endpoint: '/api/payment/callback',
-      method: 'POST', request_body: req.body, response_body: { hashData, updateData },
-      status_code: 200, ip_address: req.ip,
+      merchant_id: transaction.merchant_id,
+      endpoint: '/api/webhooks/paytm',
+      method: 'POST',
+      request_body: callbackData,
+      response_body: { status: finalStatus, updateData },
+      status_code: 200,
+      ip_address: req.ip,
     });
 
-    // Fire webhooks non-blocking (after commit)
+    // Fire merchant webhooks (non-blocking)
     const event = finalStatus === 'COMPLETED' ? 'payment.success' : 'payment.failed';
     triggerMerchantWebhooks(transaction.merchant_id, event, {
       event,
@@ -255,25 +163,13 @@ export const paymentCallback = async (req, res, next) => {
       transaction_id: transaction.id,
       amount: transaction.amount,
       status: finalStatus,
-      utr: transaction.utr,
-      payment_mode: transaction.payment_mode,
-      txn_date: transaction.txn_date,
+      txn_id: TXNID,
+      payment_mode: PAYMENTMODE,
+      txn_date: updateData.txn_date,
     }).catch((err) => console.error('[WEBHOOK]', err.message));
 
-    // If browser request, render HTML page; otherwise return JSON
-    if (req.headers.accept?.includes('text/html')) {
-      if (finalStatus === 'COMPLETED') {
-        return res.status(200).render('payment-success', {
-          message: 'Your payment has been processed successfully.',
-          order_id: orderId,
-        });
-      }
-      return res.status(200).render('payment-failed', {
-        title: 'Payment Failed',
-        message: 'Your payment could not be processed. Please try again.',
-      });
-    }
-    return successResponse(res, 200, 'Callback processed.');
+    // Paytm expects a simple response
+    return successResponse(res, 200, 'Webhook processed.');
   } catch (err) {
     next(err);
   }
@@ -285,38 +181,48 @@ export const paymentCallback = async (req, res, next) => {
 export const getPaymentStatus = async (req, res, next) => {
   try {
     const { orderId } = req.params;
+    const merchant = req.merchant;
+
     const transaction = await Transaction.findOne({
-      where: { order_id: orderId, merchant_id: req.merchant.id },
+      where: { order_id: orderId, merchant_id: merchant.id },
     });
     if (!transaction) return errorResponse(res, 404, 'Transaction not found.');
 
-    if (transaction.status === 'PENDING') {
+    // If still pending, check with Paytm
+    if (transaction.status === 'PENDING' && merchant.paytm_configured) {
       try {
-        const statusResponse = await checkTransactionStatus(orderId);
-        if (statusResponse.status === 'SUCCESS' && statusResponse.result) {
-          const r = statusResponse.result;
+        const statusResponse = await checkTransactionStatus({ merchant, orderId });
+        if (statusResponse.resultStatus === 'TXN_SUCCESS') {
           await transaction.update({
-            txn_id: r.txnId || null, bank_txn_id: r.bankTxnId || null,
-            fees: r.fees ? parseFloat(r.fees) : 0,
-            settle_amount: r.settle_amount ? parseFloat(r.settle_amount) : 0,
-            status: r.txnStatus === 'COMPLETED' ? 'COMPLETED' : r.txnStatus === 'FAILED' ? 'FAILED' : 'PENDING',
-            payment_mode: r.paymentMode || null, sender_vpa: r.sender_vpa || null,
-            utr: r.utr || null, txn_date: r.txnDate ? new Date(r.txnDate) : null,
+            txn_id: statusResponse.txnId || null,
+            bank_txn_id: statusResponse.bankTxnId || null,
+            status: 'COMPLETED',
+            payment_mode: statusResponse.paymentMode || null,
+            txn_date: statusResponse.txnDate ? new Date(statusResponse.txnDate) : null,
           });
+          await transaction.reload();
+        } else if (statusResponse.resultStatus === 'TXN_FAILURE') {
+          await transaction.update({ status: 'FAILED' });
           await transaction.reload();
         }
       } catch (apiErr) {
-        console.error('BharatEasy status check failed:', apiErr.message);
+        console.error('Paytm status check failed:', apiErr.message);
       }
     }
 
     return successResponse(res, 200, 'Transaction status retrieved.', {
       transaction: {
-        order_id: transaction.order_id, txn_id: transaction.txn_id,
-        amount: transaction.amount, fees: transaction.fees,
-        settle_amount: transaction.settle_amount, status: transaction.status,
-        payment_mode: transaction.payment_mode, sender_vpa: transaction.sender_vpa,
-        utr: transaction.utr, txn_date: transaction.txn_date, created_at: transaction.created_at,
+        order_id: transaction.order_id,
+        txn_id: transaction.txn_id,
+        amount: transaction.amount,
+        fees: transaction.fees,
+        settle_amount: transaction.settle_amount,
+        status: transaction.status,
+        payment_mode: transaction.payment_mode,
+        sender_vpa: transaction.sender_vpa,
+        utr: transaction.utr,
+        txn_date: transaction.txn_date,
+        created_at: transaction.created_at,
       },
     });
   } catch (err) {

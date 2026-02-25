@@ -4,6 +4,7 @@ import {
   getApiKeys, regenerateTestKeys, getApiKeyUsage,
   listBankAccounts, addBankAccount, updateBankAccount, deleteBankAccount,
   getSettings, updateSettings, changePassword,
+  getPaytmConfig, updatePaytmConfig,
 } from '../controllers/merchant.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -29,6 +30,13 @@ router.post('/bank-accounts', validate({
 }), addBankAccount);
 router.put('/bank-accounts/:id', updateBankAccount);
 router.delete('/bank-accounts/:id', deleteBankAccount);
+
+// Paytm Configuration
+router.get('/paytm-config', getPaytmConfig);
+router.put('/paytm-config', validate({
+  paytm_mid: { required: true },
+  paytm_merchant_key: { required: true },
+}), updatePaytmConfig);
 
 // Settings
 router.get('/settings', getSettings);

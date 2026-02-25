@@ -12,7 +12,10 @@ export default function RegisterPage() {
     password: "",
     phone: "",
     business_type: "individual",
+    paytm_mid: "",
+    paytm_merchant_key: "",
   });
+  const [showPaytm, setShowPaytm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -130,6 +133,53 @@ export default function RegisterPage() {
                 <option value="pvt_ltd">Private Limited</option>
                 <option value="llp">LLP</option>
               </select>
+            </div>
+
+            <div className="border-t border-gray-200 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowPaytm(!showPaytm)}
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <svg className={`h-4 w-4 transition-transform ${showPaytm ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                Paytm Business Configuration <span className="text-gray-400">(optional)</span>
+              </button>
+
+              {showPaytm && (
+                <div className="mt-3 space-y-4 rounded-lg bg-gray-50 p-4 border border-gray-200">
+                  <p className="text-xs text-gray-500">
+                    Connect your Paytm Business account to accept payments. You can also configure this later in Settings.
+                  </p>
+                  <div>
+                    <label htmlFor="paytm_mid" className="block text-sm font-medium text-gray-700 mb-1">
+                      Paytm Merchant ID (MID)
+                    </label>
+                    <input
+                      id="paytm_mid"
+                      type="text"
+                      value={form.paytm_mid}
+                      onChange={(e) => updateField("paytm_mid", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="e.g. MERCHANT12345678"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="paytm_merchant_key" className="block text-sm font-medium text-gray-700 mb-1">
+                      Paytm Merchant Key
+                    </label>
+                    <input
+                      id="paytm_merchant_key"
+                      type="password"
+                      value={form.paytm_merchant_key}
+                      onChange={(e) => updateField("paytm_merchant_key", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="Your Paytm secret key"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <button

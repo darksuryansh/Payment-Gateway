@@ -1,6 +1,6 @@
 import { PaymentPage, Merchant } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
-import { processPayment } from '../services/bharatEasy.service.js';
+import { initiateTransaction } from '../services/paytm.service.js';
 import { Transaction } from '../models/pg/index.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -137,31 +137,43 @@ export const initiateHostedPayment = async (req, res, next) => {
 
     if (!page) return errorResponse(res, 404, 'Payment page not found.');
 
+    // Fetch merchant with Paytm credentials
+    const merchant = await Merchant.findByPk(page.merchant_id, {
+      attributes: { exclude: ['password'] },
+    });
+
+    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+      return errorResponse(res, 400, 'Merchant has not configured Paytm payments.');
+    }
+
     const amount = page.amount || req.body.amount;
     if (!amount) return errorResponse(res, 400, 'Amount is required.');
 
     const orderId = `ORD${uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase()}`;
+    const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
 
     const transaction = await Transaction.create({
       merchant_id: page.merchant_id,
       order_id: orderId,
       amount,
       sender_note: page.title || 'Payment',
-      callback_url: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      callback_url: `${baseUrl}/api/webhooks/paytm`,
       status: 'PENDING',
     });
 
-    const gatewayResponse = await processPayment({
+    const paytmResponse = await initiateTransaction({
+      merchant,
       orderId,
-      txnAmount: amount,
-      txnNote: page.title || 'Payment',
-      callbackUrl: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      amount,
+      callbackUrl: `${baseUrl}/api/webhooks/paytm`,
     });
 
     return successResponse(res, 201, 'Payment initiated.', {
       order_id: orderId,
       transaction_id: transaction.id,
-      gateway_response: gatewayResponse,
+      txn_token: paytmResponse.txnToken,
+      payment_url: paytmResponse.paymentUrl,
+      mid: paytmResponse.mid,
     });
   } catch (err) {
     next(err);

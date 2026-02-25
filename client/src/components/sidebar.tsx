@@ -49,6 +49,7 @@ const financeItems = [
 
 const settingsItems = [
   { label: "Profile",       href: "/dashboard/settings/profile",        icon: Building2 },
+  { label: "Paytm Config",  href: "/dashboard/settings/paytm",          icon: CreditCard},
   { label: "Bank Accounts", href: "/dashboard/settings/bank-accounts",  icon: Wallet    },
   { label: "API Keys",      href: "/dashboard/settings/api-keys",       icon: Key       },
   { label: "Webhooks",      href: "/dashboard/settings/webhooks",       icon: Webhook   },

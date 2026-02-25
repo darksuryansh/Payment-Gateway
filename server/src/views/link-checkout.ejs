@@ -92,20 +92,9 @@
 
         const data = await res.json();
 
-        if (data.success && data.data?.gateway_url && data.data?.gateway_payload) {
-          // Create a hidden form and POST directly to BharatEasy
-          const form = document.createElement('form');
-          form.method = 'POST';
-          form.action = data.data.gateway_url;
-          for (const [key, value] of Object.entries(data.data.gateway_payload)) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = value;
-            form.appendChild(input);
-          }
-          document.body.appendChild(form);
-          form.submit();
+        if (data.success && data.data?.payment_url) {
+          // Redirect to Paytm payment page
+          window.location.href = data.data.payment_url;
           return;
         } else if (!data.success) {
           msg.style.display = 'block';

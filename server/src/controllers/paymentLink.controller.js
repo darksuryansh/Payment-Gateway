@@ -2,8 +2,8 @@ import { Op } from 'sequelize';
 import { PaymentLink, Merchant, Transaction } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { generateShortCode } from '../services/paymentLink.service.js';
+import { initiateTransaction } from '../services/paytm.service.js';
 import { v4 as uuidv4 } from 'uuid';
-import { generateChecksum } from '../utils/checksum.js';
 
 export const createPaymentLink = async (req, res, next) => {
   try {
@@ -102,50 +102,44 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
       await link.update({ status: 'EXPIRED' });
       return errorResponse(res, 410, 'This payment link has expired.');
     }
+
+    // Fetch merchant with Paytm credentials
+    const merchant = await Merchant.findByPk(link.merchant_id, {
+      attributes: { exclude: ['password'] },
+    });
+
+    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+      return errorResponse(res, 400, 'Merchant has not configured Paytm payments.');
+    }
+
     const amount = link.is_partial ? req.body.amount : link.amount;
     if (!amount) return errorResponse(res, 400, 'Amount is required.');
     if (link.is_partial && link.min_amount && parseFloat(amount) < parseFloat(link.min_amount)) {
       return errorResponse(res, 400, 'Minimum amount is Rs.' + link.min_amount + '.');
     }
+
     const orderId = 'ORD' + uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase();
     const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
+
     const transaction = await Transaction.create({
       merchant_id: link.merchant_id, order_id: orderId, amount,
       sender_note: link.title || link.description || 'Payment Link',
-      callback_url: baseUrl + '/api/payment/callback', status: 'PENDING',
+      callback_url: baseUrl + '/api/webhooks/paytm', status: 'PENDING',
     });
-    const txnAmount = String(amount);
-    const txnNote = link.title || link.description || 'Payment';
-    const callbackUrl = baseUrl + '/api/payment/callback?orderId=' + orderId;
 
-    // Generate checksum with all params (sorted alphabetically inside generateChecksum)
-    const checksumParams = {
-      upiuid: process.env.BHARATEASY_UPI_UID,
-      token: process.env.BHARATEASY_TOKEN,
+    const paytmResponse = await initiateTransaction({
+      merchant,
       orderId,
-      txnAmount,
-      txnNote,
-      callback_url: callbackUrl,
-    };
-    const checksum = generateChecksum(checksumParams);
-
-    const gatewayUrl = process.env.NODE_ENV === 'development'
-      ? process.env.BHARATEASY_TEST_URL
-      : process.env.BHARATEASY_PROCESS_URL;
-
-    const gatewayPayload = {
-      ...checksumParams,
-      checksum,
-    };
-
-    console.log('[PaymentLink] Gateway URL:', gatewayUrl);
-    console.log('[PaymentLink] Gateway payload:', JSON.stringify(gatewayPayload, null, 2));
+      amount,
+      callbackUrl: baseUrl + '/api/webhooks/paytm',
+    });
 
     return successResponse(res, 201, 'Payment initiated.', {
       order_id: orderId,
       transaction_id: transaction.id,
-      gateway_url: gatewayUrl,
-      gateway_payload: gatewayPayload,
+      txn_token: paytmResponse.txnToken,
+      payment_url: paytmResponse.paymentUrl,
+      mid: paytmResponse.mid,
     });
   } catch (err) { next(err); }
 };

@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
-import { Subscription, SubscriptionPayment, Transaction } from '../models/pg/index.js';
-import { processPayment } from './bharatEasy.service.js';
+import { Subscription, SubscriptionPayment, Transaction, Merchant } from '../models/pg/index.js';
+import { initiateTransaction } from './paytm.service.js';
 import { triggerMerchantWebhooks } from './webhook.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -34,20 +34,29 @@ export const processRecurringPayments = async () => {
     }
 
     try {
-      // Create a pending transaction for this billing cycle
+      // Fetch merchant with Paytm credentials
+      const merchant = await Merchant.findByPk(sub.merchant_id, {
+        attributes: { exclude: ['password'] },
+      });
+
+      if (!merchant || !merchant.paytm_configured) {
+        console.error(`[SUBSCRIPTION] Merchant ${sub.merchant_id} has no Paytm config, skipping`);
+        continue;
+      }
+
       const orderId = 'ORD' + uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase();
+      const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
 
       const transaction = await Transaction.create({
         merchant_id: sub.merchant_id,
         order_id: orderId,
         amount: sub.amount,
         sender_note: sub.plan_name + ' - Subscription',
-        callback_url: process.env.CALLBACK_BASE_URL + '/api/payment/callback',
+        callback_url: baseUrl + '/api/webhooks/paytm',
         status: 'PENDING',
         subscription_id: sub.id,
       });
 
-      // Create subscription payment record linked to the transaction
       const subPayment = await SubscriptionPayment.create({
         subscription_id: sub.id,
         transaction_id: transaction.id,
@@ -57,15 +66,13 @@ export const processRecurringPayments = async () => {
         attempt_count: 1,
       });
 
-      // Actually call BharatEasy to charge the customer
-      await processPayment({
+      await initiateTransaction({
+        merchant,
         orderId,
-        txnAmount: sub.amount,
-        txnNote: sub.plan_name + ' - Subscription',
-        callbackUrl: process.env.CALLBACK_BASE_URL + '/api/payment/callback',
+        amount: sub.amount,
+        callbackUrl: baseUrl + '/api/webhooks/paytm',
       });
 
-      // Advance next billing date
       const nextBilling = updateNextBilling(sub);
       await sub.update({ next_billing: nextBilling, retry_count: 0 });
 
@@ -80,7 +87,6 @@ export const processRecurringPayments = async () => {
 
     } catch (err) {
       console.error('[SUBSCRIPTION] Failed to process payment for sub', sub.id, err.message);
-      // Mark payment as failed, increment retry count
       await sub.update({ retry_count: (sub.retry_count || 0) + 1 });
 
       if ((sub.retry_count || 0) + 1 >= (sub.max_retries || 3)) {
@@ -113,21 +119,30 @@ export const handleRetries = async () => {
     }
 
     try {
+      const merchant = await Merchant.findByPk(sub.merchant_id, {
+        attributes: { exclude: ['password'] },
+      });
+
+      if (!merchant || !merchant.paytm_configured) continue;
+
       const orderId = 'ORD' + uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase();
+      const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
+
       const transaction = await Transaction.create({
         merchant_id: sub.merchant_id,
         order_id: orderId,
         amount: sub.amount,
         sender_note: sub.plan_name + ' - Retry',
-        callback_url: process.env.CALLBACK_BASE_URL + '/api/payment/callback',
+        callback_url: baseUrl + '/api/webhooks/paytm',
         status: 'PENDING',
         subscription_id: sub.id,
       });
 
-      await processPayment({
-        orderId, txnAmount: sub.amount,
-        txnNote: sub.plan_name + ' - Retry',
-        callbackUrl: process.env.CALLBACK_BASE_URL + '/api/payment/callback',
+      await initiateTransaction({
+        merchant,
+        orderId,
+        amount: sub.amount,
+        callbackUrl: baseUrl + '/api/webhooks/paytm',
       });
 
       const nextRetry = new Date(Date.now() + payment.attempt_count * 60 * 60 * 1000);

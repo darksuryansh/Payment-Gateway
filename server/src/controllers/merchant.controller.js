@@ -313,6 +313,60 @@ export const updateSettings = async (req, res, next) => {
   }
 };
 
+// --- Paytm Configuration ---
+
+/**
+ * GET /api/merchant/paytm-config
+ */
+export const getPaytmConfig = async (req, res, next) => {
+  try {
+    const merchant = await Merchant.findByPk(req.merchant.id, {
+      attributes: ['paytm_mid', 'paytm_merchant_key', 'paytm_website', 'paytm_configured'],
+    });
+
+    const maskKey = (key) => key ? `${key.substring(0, 6)}...${key.substring(key.length - 4)}` : null;
+
+    return successResponse(res, 200, 'Paytm configuration retrieved.', {
+      paytm_mid: merchant.paytm_mid || null,
+      paytm_merchant_key: maskKey(merchant.paytm_merchant_key),
+      paytm_website: merchant.paytm_website || 'DEFAULT',
+      paytm_configured: merchant.paytm_configured,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PUT /api/merchant/paytm-config
+ */
+export const updatePaytmConfig = async (req, res, next) => {
+  try {
+    const { paytm_mid, paytm_merchant_key, paytm_website } = req.body;
+
+    if (!paytm_mid || !paytm_merchant_key) {
+      return errorResponse(res, 400, 'Paytm MID and Merchant Key are required.');
+    }
+
+    // Use instance-level update so beforeUpdate hook encrypts the key
+    const merchant = await Merchant.findByPk(req.merchant.id);
+    await merchant.update({
+      paytm_mid,
+      paytm_merchant_key,
+      paytm_website: paytm_website || 'DEFAULT',
+      paytm_configured: true,
+    });
+
+    return successResponse(res, 200, 'Paytm configuration updated successfully.', {
+      paytm_mid,
+      paytm_website: paytm_website || 'DEFAULT',
+      paytm_configured: true,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 /**
  * POST /api/merchant/change-password
  */

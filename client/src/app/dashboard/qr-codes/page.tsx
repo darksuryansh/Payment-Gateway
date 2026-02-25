@@ -17,7 +17,7 @@ export default function QRCodesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post("/qrcodes/static", {
+      const res = await api.post("/qrcodes/dynamic", {
         amount: form.amount ? parseFloat(form.amount) : undefined,
         note: form.note || undefined,
         format: form.format,

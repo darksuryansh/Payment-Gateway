@@ -2,11 +2,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { generatePaymentQR, generateUpiDeepLink, generateBulkQR } from '../services/qrcode.service.js';
 import { PaymentLink, UpiAccount, Transaction } from '../models/pg/index.js';
-import { processPayment } from '../services/bharatEasy.service.js';
+import { createDynamicQR } from '../services/paytm.service.js';
 import ApiLog from '../models/mongo/ApiLog.js';
 
 /**
  * POST /api/qrcodes/generate
+ * Generate a static QR code using merchant's UPI ID (local generation, no API call).
  */
 export const generateQR = async (req, res, next) => {
   try {
@@ -21,7 +22,6 @@ export const generateQR = async (req, res, next) => {
       if (!link) return errorResponse(res, 404, 'Payment link not found.');
       qrData = `${process.env.CALLBACK_BASE_URL}/pay/link/${link.short_url}`;
     } else {
-      // Generate UPI deep link using merchant's primary UPI account
       const upiAccount = await UpiAccount.findOne({
         where: { merchant_id: req.merchant.id, is_primary: true, is_active: true },
       });
@@ -49,57 +49,56 @@ export const generateQR = async (req, res, next) => {
 };
 
 /**
- * POST /api/qrcodes/static
- * Now creates an order via BharatEasy so the payment is tracked.
- * Requires: { amount, note? (optional), format? (optional) }
+ * POST /api/qrcodes/dynamic
+ * Generate a dynamic QR code via Paytm API (tracked, with amount).
  */
-export const generateStaticQR = async (req, res, next) => {
+export const generateDynamicQR = async (req, res, next) => {
   try {
     const { amount, note, format = 'png' } = req.body;
+    const merchant = req.merchant;
 
     if (!amount || parseFloat(amount) <= 0) {
-      return errorResponse(res, 400, 'A valid amount is required to generate a QR code.');
+      return errorResponse(res, 400, 'A valid amount is required to generate a dynamic QR code.');
     }
 
-    const merchantId = req.merchant.id;
+    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+      return errorResponse(res, 400, 'Paytm is not configured. Please add your Paytm credentials in settings.');
+    }
+
     const orderId = `QR${uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase()}`;
 
-    // Create a transaction record so the payment is tracked
     const transaction = await Transaction.create({
-      merchant_id: merchantId,
+      merchant_id: merchant.id,
       order_id: orderId,
       amount: parseFloat(amount),
       sender_note: note || 'QR Payment',
-      callback_url: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      callback_url: `${(process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '')}/api/webhooks/paytm`,
       status: 'PENDING',
     });
 
-    // Create order with BharatEasy to get a tracked payment link
-    const bharatEasyResponse = await processPayment({
+    const paytmQR = await createDynamicQR({
+      merchant,
       orderId,
-      txnAmount: amount,
-      txnNote: note || 'QR Payment',
-      callbackUrl: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      amount,
     });
 
     await ApiLog.create({
-      merchant_id: merchantId,
-      endpoint: '/order/process',
+      merchant_id: merchant.id,
+      endpoint: '/paymentservices/qr/create',
       method: 'POST',
-      request_body: { orderId, txnAmount: amount, txnNote: note },
-      response_body: bharatEasyResponse,
+      request_body: { orderId, amount, note },
+      response_body: paytmQR,
       status_code: 200,
       ip_address: req.ip,
     });
 
-    // Use the BharatEasy payment URL for the QR code
-    const paymentUrl = bharatEasyResponse?.url || bharatEasyResponse?.payment_url || bharatEasyResponse?.data?.url;
-    const qrData = paymentUrl || `${process.env.CALLBACK_BASE_URL}/pay/${orderId}`;
-    const qrImage = await generatePaymentQR(qrData, format);
+    // Generate QR image from the Paytm QR data string
+    const qrData = paytmQR.qrData || paytmQR.image;
+    const qrImage = qrData ? await generatePaymentQR(qrData, format) : null;
 
-    return successResponse(res, 200, 'QR code generated.', {
+    return successResponse(res, 200, 'Dynamic QR code generated.', {
       qr_data: qrData,
-      qr_image: qrImage,
+      qr_image: qrImage || paytmQR.image,
       order_id: orderId,
       transaction_id: transaction.id,
       amount: parseFloat(amount),
@@ -110,7 +109,7 @@ export const generateStaticQR = async (req, res, next) => {
     try {
       await ApiLog.create({
         merchant_id: req.merchant?.id,
-        endpoint: '/order/process',
+        endpoint: '/paymentservices/qr/create',
         method: 'POST',
         request_body: req.body,
         response_body: { error: err.message },

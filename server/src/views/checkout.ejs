@@ -85,8 +85,8 @@
 
         const data = await res.json();
 
-        if (data.success && data.data?.gateway_response?.payment_url) {
-          window.location.href = data.data.gateway_response.payment_url;
+        if (data.success && data.data?.payment_url) {
+          window.location.href = data.data.payment_url;
         } else if (data.success) {
           msg.style.display = 'block';
           msg.className = 'message success';

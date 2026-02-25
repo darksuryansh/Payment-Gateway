@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Merchant } from '../models/pg/index.js';
+import { Merchant, UpiAccount } from '../models/pg/index.js';
 import { generateApiKey, generateApiSecret } from '../utils/generateKeys.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import ActivityLog from '../models/mongo/ActivityLog.js';
@@ -10,7 +10,7 @@ import ActivityLog from '../models/mongo/ActivityLog.js';
  */
 export const register = async (req, res, next) => {
   try {
-    const { business_name, email, password, phone, business_type, website } = req.body;
+    const { business_name, email, password, phone, business_type, website, paytm_mid, paytm_merchant_key, paytm_website, merchant_tier, upi_id } = req.body;
 
     const existingMerchant = await Merchant.findOne({ where: { email } });
     if (existingMerchant) {
@@ -23,6 +23,8 @@ export const register = async (req, res, next) => {
     const api_key = generateApiKey();
     const api_secret = generateApiSecret();
 
+    const paytmConfigured = !!(paytm_mid && paytm_merchant_key);
+
     const merchant = await Merchant.create({
       business_name,
       email,
@@ -32,6 +34,10 @@ export const register = async (req, res, next) => {
       website: website || null,
       api_key,
       api_secret,
+      paytm_mid: paytm_mid || null,
+      paytm_merchant_key: paytm_merchant_key || null,
+      paytm_website: paytm_website || 'DEFAULT',
+      paytm_configured: paytmConfigured,
     });
 
     const token = jwt.sign(

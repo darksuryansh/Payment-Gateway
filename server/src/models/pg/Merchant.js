@@ -1,4 +1,5 @@
 import { DataTypes } from 'sequelize';
+import { encrypt, decrypt } from '../../utils/encryption.js';
 
 export default (sequelize) => {
   const Merchant = sequelize.define('merchants', {
@@ -73,6 +74,10 @@ export default (sequelize) => {
       type: DataTypes.STRING(10),
       allowNull: true,
     },
+    merchant_tier: {
+      type: DataTypes.ENUM('tier_1', 'tier_2'),
+      defaultValue: 'tier_1',
+    },
     paytm_mid: {
       type: DataTypes.STRING(100),
       allowNull: true,
@@ -88,6 +93,36 @@ export default (sequelize) => {
     paytm_configured: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
+    },
+  }, {
+    hooks: {
+      beforeCreate(merchant) {
+        if (merchant.paytm_merchant_key && !merchant.paytm_merchant_key.includes(':')) {
+          merchant.paytm_merchant_key = encrypt(merchant.paytm_merchant_key);
+        }
+      },
+      beforeUpdate(merchant) {
+        if (merchant.changed('paytm_merchant_key') && merchant.paytm_merchant_key && !merchant.paytm_merchant_key.includes(':')) {
+          merchant.paytm_merchant_key = encrypt(merchant.paytm_merchant_key);
+        }
+      },
+      afterFind(result) {
+        if (!result) return;
+        const decryptKey = (m) => {
+          if (m.paytm_merchant_key && m.paytm_merchant_key.includes(':')) {
+            try {
+              m.paytm_merchant_key = decrypt(m.paytm_merchant_key);
+            } catch {
+              // If decryption fails, leave as-is
+            }
+          }
+        };
+        if (Array.isArray(result)) {
+          result.forEach(decryptKey);
+        } else {
+          decryptKey(result);
+        }
+      },
     },
   });
 

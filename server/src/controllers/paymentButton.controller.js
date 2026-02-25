@@ -1,6 +1,6 @@
 import { PaymentButton, Merchant, Transaction } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
-import { processPayment } from '../services/bharatEasy.service.js';
+import { initiateTransaction } from '../services/paytm.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const generateEmbedCode = (button, baseUrl) => {
@@ -161,29 +161,40 @@ export const initiateButtonPayment = async (req, res, next) => {
 
     if (!button) return errorResponse(res, 404, 'Payment button not found.');
 
+    // Fetch merchant with Paytm credentials
+    const merchant = await Merchant.findByPk(button.merchant_id, {
+      attributes: { exclude: ['password'] },
+    });
+
+    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+      return errorResponse(res, 400, 'Merchant has not configured Paytm payments.');
+    }
+
     const orderId = `ORD${uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase()}`;
+    const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
 
     const transaction = await Transaction.create({
       merchant_id: button.merchant_id,
       order_id: orderId,
       amount: button.amount,
       sender_note: button.label,
-      callback_url: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      callback_url: `${baseUrl}/api/webhooks/paytm`,
       status: 'PENDING',
     });
 
-    const gatewayResponse = await processPayment({
+    const paytmResponse = await initiateTransaction({
+      merchant,
       orderId,
-      txnAmount: button.amount,
-      txnNote: button.label,
-      callbackUrl: `${process.env.CALLBACK_BASE_URL}/api/payment/callback`,
+      amount: button.amount,
+      callbackUrl: `${baseUrl}/api/webhooks/paytm`,
     });
 
-    // Redirect to success/cancel URL after payment completes if configured
     return successResponse(res, 201, 'Payment initiated.', {
       order_id: orderId,
       transaction_id: transaction.id,
-      gateway_response: gatewayResponse,
+      txn_token: paytmResponse.txnToken,
+      payment_url: paytmResponse.paymentUrl,
+      mid: paytmResponse.mid,
       redirect_url: button.redirect_url || null,
     });
   } catch (err) {
