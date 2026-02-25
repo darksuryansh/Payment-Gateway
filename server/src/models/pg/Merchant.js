@@ -73,6 +73,22 @@ export default (sequelize) => {
       type: DataTypes.STRING(10),
       allowNull: true,
     },
+    paytm_mid: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    paytm_merchant_key: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    paytm_website: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'DEFAULT',
+    },
+    paytm_configured: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   });
 
   return Merchant;

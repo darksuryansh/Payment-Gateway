@@ -63,7 +63,7 @@ export const paymentCallback = async (req, res, next) => {
   try {
     const callbackData = { ...req.query, ...req.body };
     console.log('[Callback] BharatEasy callback data:', JSON.stringify(callbackData, null, 2));
-    const { status, checksum, orderId: bodyOrderId, order_id: bodySnakeOrderId } = callbackData;
+    const { status, checksum, hash, message, orderId: bodyOrderId, order_id: bodySnakeOrderId } = callbackData;
     const orderId = req.query.orderId || bodyOrderId || bodySnakeOrderId;
 
     if (!orderId) return errorResponse(res, 400, 'Missing orderId in callback payload.');
@@ -153,39 +153,78 @@ export const paymentCallback = async (req, res, next) => {
       return successResponse(res, 200, 'Callback processed.');
     }
 
-    // SUCCESS callback — verify checksum (skip if "false" string from gateway)
+    // SUCCESS callback — verify checksum using hash field (matches txnResult.php flow)
+    // PHP flow: hash_decrypt($hash, $secret) → verifySignature($decrypted, $secret, $checksum)
+    let hashData = null;
     if (checksum && checksum !== 'false') {
-      const isValid = verifyCallbackChecksum({
-        checksum, orderId, txnAmount: String(transaction.amount),
-      });
-      if (!isValid) {
+      const result = verifyCallbackChecksum({ hash, checksum });
+      if (!result.verified) {
         console.error(`Checksum verification failed for order: ${orderId}`);
         await transaction.update({ status: 'FAILED' });
         return errorResponse(res, 400, 'Checksum verification failed.');
       }
+      hashData = result.data; // Parsed transaction details from decrypted hash
+      console.log('[Callback] Decrypted hash data:', JSON.stringify(hashData, null, 2));
     }
 
-    // Fetch full transaction details from BharatEasy status API
-    const statusResponse = await checkTransactionStatus(orderId);
+    // Build update from decrypted hash data (primary) + status API (fallback/extra details)
     let finalStatus = 'FAILED';
     let updateData = { status: 'FAILED' };
 
-    if (statusResponse.status === 'SUCCESS' && statusResponse.result) {
-      const r = statusResponse.result;
-      finalStatus = r.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
+    // If hash decryption gave us transaction data, use it
+    if (hashData) {
+      finalStatus = hashData.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
       updateData = {
-        txn_id: r.txnId || null,
-        bank_txn_id: r.bankTxnId || null,
-        fees: r.fees ? parseFloat(r.fees) : 0,
-        settle_amount: r.settle_amount ? parseFloat(r.settle_amount) : 0,
+        txn_id: hashData.txnId || null,
+        bank_txn_id: hashData.bankTxnId || null,
+        fees: hashData.fees ? parseFloat(hashData.fees) : 0,
+        settle_amount: hashData.settle_amount ? parseFloat(hashData.settle_amount) : 0,
         status: finalStatus,
-        payment_mode: r.paymentMode || null,
-        sender_vpa: r.sender_vpa || null,
-        sender_note: r.sender_note || null,
-        payee_vpa: r.payee_vpa || null,
-        utr: r.utr || null,
-        txn_date: r.txnDate ? new Date(r.txnDate) : null,
+        payment_mode: hashData.paymentMode || null,
+        sender_vpa: hashData.sender_vpa || null,
+        sender_note: hashData.sender_note || null,
+        payee_vpa: hashData.payee_vpa || null,
+        utr: hashData.utr || null,
+        txn_date: hashData.txnDate ? new Date(hashData.txnDate) : null,
       };
+    }
+
+    // Also fetch from BharatEasy status API for completeness / fallback
+    try {
+      const statusResponse = await checkTransactionStatus(orderId);
+      if (statusResponse.status === 'SUCCESS' && statusResponse.result) {
+        const r = statusResponse.result;
+        const apiStatus = r.txnStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
+        // If hash data was missing or incomplete, use status API data
+        if (!hashData) {
+          finalStatus = apiStatus;
+          updateData = {
+            txn_id: r.txnId || null,
+            bank_txn_id: r.bankTxnId || null,
+            fees: r.fees ? parseFloat(r.fees) : 0,
+            settle_amount: r.settle_amount ? parseFloat(r.settle_amount) : 0,
+            status: finalStatus,
+            payment_mode: r.paymentMode || null,
+            sender_vpa: r.sender_vpa || null,
+            sender_note: r.sender_note || null,
+            payee_vpa: r.payee_vpa || null,
+            utr: r.utr || null,
+            txn_date: r.txnDate ? new Date(r.txnDate) : null,
+          };
+        } else {
+          // Fill in any fields that hash data might be missing
+          updateData.txn_id = updateData.txn_id || r.txnId || null;
+          updateData.bank_txn_id = updateData.bank_txn_id || r.bankTxnId || null;
+          updateData.utr = updateData.utr || r.utr || null;
+          updateData.payment_mode = updateData.payment_mode || r.paymentMode || null;
+          updateData.sender_vpa = updateData.sender_vpa || r.sender_vpa || null;
+          updateData.fees = updateData.fees || (r.fees ? parseFloat(r.fees) : 0);
+          updateData.settle_amount = updateData.settle_amount || (r.settle_amount ? parseFloat(r.settle_amount) : 0);
+        }
+      }
+    } catch (statusErr) {
+      console.error('[Callback] Status API check failed for', orderId, statusErr.message);
+      // Continue with hash data if available
     }
 
     // Atomic DB update
@@ -204,7 +243,7 @@ export const paymentCallback = async (req, res, next) => {
     // Log the callback
     await ApiLog.create({
       merchant_id: transaction.merchant_id, endpoint: '/api/payment/callback',
-      method: 'POST', request_body: req.body, response_body: statusResponse,
+      method: 'POST', request_body: req.body, response_body: { hashData, updateData },
       status_code: 200, ip_address: req.ip,
     });
 

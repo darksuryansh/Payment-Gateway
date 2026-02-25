@@ -1,6 +1,6 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { generateChecksum, verifyChecksum } from '../utils/checksum.js';
+import { generateChecksum, verifyChecksum, decryptHash } from '../utils/checksum.js';
 
 dotenv.config();
 
@@ -72,16 +72,42 @@ export const checkTransactionStatus = async (orderId) => {
 };
 
 /**
- * Verify a callback response checksum from BharatEasy.
- * Uses the new verifyChecksum that decrypts AES-128-CBC and compares hash+salt.
+ * Verify a callback response from BharatEasy.
+ * Matches txnResult.php flow:
+ *   1. Decrypt the "hash" field → get transaction data as JSON string
+ *   2. Verify checksum against the decrypted hash string (NOT raw POST params)
+ *   3. Parse the decrypted JSON to extract transaction details
+ *
+ * @param {Object} callbackData - The raw callback POST data (status, hash, checksum, etc.)
+ * @returns {{ verified: boolean, data: Object|null }} - Verification result and parsed transaction data
  */
 export const verifyCallbackChecksum = (callbackData) => {
-  const { checksum, ...rest } = callbackData;
-  if (!checksum || checksum === 'false') return false;
+  const { checksum, hash } = callbackData;
+  if (!checksum || checksum === 'false') return { verified: false, data: null };
 
-  // Remove CHECKSUMHASH if present (BharatEasy SDK convention)
-  const params = { ...rest };
-  delete params.CHECKSUMHASH;
+  // Must have hash field to verify (matches PHP: hash_decrypt then verifySignature)
+  if (!hash) {
+    console.warn('[Checksum] No hash field in callback data, cannot verify.');
+    return { verified: false, data: null };
+  }
 
-  return verifyChecksum(params, BHARATEASY_SECRET_KEY, checksum);
+  // Step 1: Decrypt the hash field (matches PHP: hash_decrypt($hash, $secret))
+  const decryptedHash = decryptHash(hash, BHARATEASY_SECRET_KEY);
+  if (!decryptedHash) {
+    console.error('[Checksum] Failed to decrypt hash field.');
+    return { verified: false, data: null };
+  }
+
+  // Step 2: Verify checksum against decrypted hash STRING (matches PHP: verifySignature($paramList, $secret, $checksum))
+  const verified = verifyChecksum(decryptedHash, BHARATEASY_SECRET_KEY, checksum);
+
+  // Step 3: Parse the decrypted JSON to get transaction details
+  let data = null;
+  try {
+    data = JSON.parse(decryptedHash);
+  } catch (e) {
+    console.error('[Checksum] Failed to parse decrypted hash as JSON:', e.message);
+  }
+
+  return { verified, data };
 };

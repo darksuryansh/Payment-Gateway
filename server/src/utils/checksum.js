@@ -97,7 +97,8 @@ export const verifyChecksum = (params, key, checksum) => {
   try {
     const decrypted = aesDecrypt(checksum, key);
     const salt = decrypted.slice(-4);
-    const paramsString = getStringByParams(params);
+    // Support both string and object params (matches PHP SDK's verifySignature)
+    const paramsString = typeof params === 'string' ? params : getStringByParams(params);
     const expected = calculateHash(paramsString, salt);
     return decrypted === expected;
   } catch {
