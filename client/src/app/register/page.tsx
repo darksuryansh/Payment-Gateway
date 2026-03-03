@@ -12,10 +12,11 @@ export default function RegisterPage() {
     password: "",
     phone: "",
     business_type: "individual",
+    merchant_tier: "tier_1",
+    upi_id: "",
     paytm_mid: "",
     paytm_merchant_key: "",
   });
-  const [showPaytm, setShowPaytm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -136,18 +137,64 @@ export default function RegisterPage() {
             </div>
 
             <div className="border-t border-gray-200 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowPaytm(!showPaytm)}
-                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                <svg className={`h-4 w-4 transition-transform ${showPaytm ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                Paytm Business Configuration <span className="text-gray-400">(optional)</span>
-              </button>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Account Type
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => updateField("merchant_tier", "tier_1")}
+                  className={`p-3 rounded-lg border text-left text-sm transition-colors ${
+                    form.merchant_tier === "tier_1"
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="font-semibold">Personal UPI</div>
+                  <div className="text-xs mt-1 text-gray-500">Accept via QR code, manual verification</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField("merchant_tier", "tier_2")}
+                  className={`p-3 rounded-lg border text-left text-sm transition-colors ${
+                    form.merchant_tier === "tier_2"
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="font-semibold">Paytm Business</div>
+                  <div className="text-xs mt-1 text-gray-500">Automated via Paytm gateway</div>
+                </button>
+              </div>
 
-              {showPaytm && (
+              {form.merchant_tier === "tier_1" && (
+                <div className="mt-3 space-y-4 rounded-lg bg-blue-50 p-4 border border-blue-200">
+                  <p className="text-xs text-gray-600">
+                    Enter your personal UPI ID to start accepting payments. Customers will pay via QR code and submit their UTR for verification.
+                  </p>
+                  <div className="rounded-lg bg-yellow-50 p-3 border border-yellow-200">
+                    <p className="text-xs text-yellow-800">
+                      <strong>Note:</strong> Personal savings accounts often have a limit of ~20 UPI transactions per day. Exceeding this may cause your bank to temporarily block your UPI ID.
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="upi_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      UPI ID
+                    </label>
+                    <input
+                      id="upi_id"
+                      type="text"
+                      value={form.upi_id}
+                      onChange={(e) => updateField("upi_id", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="yourname@okaxis"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">You can also add this later in Bank Accounts settings.</p>
+                  </div>
+                </div>
+              )}
+
+              {form.merchant_tier === "tier_2" && (
                 <div className="mt-3 space-y-4 rounded-lg bg-gray-50 p-4 border border-gray-200">
                   <p className="text-xs text-gray-500">
                     Connect your Paytm Business account to accept payments. You can also configure this later in Settings.

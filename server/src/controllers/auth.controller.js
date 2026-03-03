@@ -38,7 +38,18 @@ export const register = async (req, res, next) => {
       paytm_merchant_key: paytm_merchant_key || null,
       paytm_website: paytm_website || 'DEFAULT',
       paytm_configured: paytmConfigured,
+      merchant_tier: merchant_tier || 'tier_1',
     });
+
+    // For Tier 1 merchants, auto-create primary UPI account if provided
+    if ((merchant_tier || 'tier_1') === 'tier_1' && upi_id) {
+      await UpiAccount.create({
+        merchant_id: merchant.id,
+        upi_id,
+        account_holder_name: business_name,
+        is_primary: true,
+      });
+    }
 
     const token = jwt.sign(
       { id: merchant.id, email: merchant.email },
@@ -58,6 +69,7 @@ export const register = async (req, res, next) => {
         id: merchant.id,
         business_name: merchant.business_name,
         email: merchant.email,
+        merchant_tier: merchant.merchant_tier,
         api_key: merchant.api_key,
         api_secret: merchant.api_secret,
       },
@@ -107,6 +119,7 @@ export const login = async (req, res, next) => {
         id: merchant.id,
         business_name: merchant.business_name,
         email: merchant.email,
+        merchant_tier: merchant.merchant_tier,
       },
       token,
     });

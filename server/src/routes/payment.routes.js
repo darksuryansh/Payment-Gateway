@@ -5,6 +5,9 @@ import {
   getPaymentStatus,
   listTransactions,
   exportTransactions,
+  submitUtr,
+  getPendingVerifications,
+  verifyUtr,
 } from '../controllers/payment.controller.js';
 import { authenticate, authenticateApiKey } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -28,5 +31,12 @@ router.get('/transactions', authenticate, listTransactions);
 
 // Export transactions as CSV - JWT auth
 router.get('/transactions/export', authenticate, exportTransactions);
+
+// Tier 1 UTR flow - public (customer submits UTR)
+router.post('/submit-utr', submitUtr);
+
+// Tier 1 UTR flow - JWT auth (merchant views & verifies)
+router.get('/pending-verifications', authenticate, getPendingVerifications);
+router.post('/verify-utr', authenticate, verifyUtr);
 
 export default router;

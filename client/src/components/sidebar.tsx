@@ -15,21 +15,21 @@ import {
   Split,
   Landmark,
   Settings,
-  Key,
   Building2,
   Webhook,
-  Users,
   ChevronDown,
   BarChart2,
   Wallet,
   Zap,
+  ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
-  { label: "Dashboard",    href: "/dashboard",             icon: LayoutDashboard },
-  { label: "Transactions", href: "/dashboard/transactions", icon: ArrowLeftRight  },
-  { label: "Analytics",    href: "/dashboard/analytics",    icon: BarChart2       },
+  { label: "Dashboard",     href: "/dashboard",                       icon: LayoutDashboard },
+  { label: "Transactions",  href: "/dashboard/transactions",          icon: ArrowLeftRight  },
+  { label: "Verifications", href: "/dashboard/pending-verifications", icon: ShieldCheck     },
+  { label: "Analytics",     href: "/dashboard/analytics",             icon: BarChart2       },
 ];
 
 const paymentItems = [
@@ -51,9 +51,7 @@ const settingsItems = [
   { label: "Profile",       href: "/dashboard/settings/profile",        icon: Building2 },
   { label: "Paytm Config",  href: "/dashboard/settings/paytm",          icon: CreditCard},
   { label: "Bank Accounts", href: "/dashboard/settings/bank-accounts",  icon: Wallet    },
-  { label: "API Keys",      href: "/dashboard/settings/api-keys",       icon: Key       },
   { label: "Webhooks",      href: "/dashboard/settings/webhooks",       icon: Webhook   },
-  { label: "Team",          href: "/dashboard/settings/team",           icon: Users     },
 ];
 
 type NavItem = { label: string; href: string; icon: React.ElementType };
@@ -124,7 +122,7 @@ export default function Sidebar() {
           href="/dashboard"
           className="text-base font-bold text-gray-900 tracking-tight dark:text-slate-100"
         >
-          PayGateway
+          Node Gateway
         </Link>
       </div>
 

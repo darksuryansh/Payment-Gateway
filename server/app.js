@@ -35,7 +35,7 @@ import invoiceRoutes from './src/routes/invoice.routes.js';
 import subscriptionRoutes from './src/routes/subscription.routes.js';
 import refundRoutes from './src/routes/refund.routes.js';
 import splitRoutes from './src/routes/splitPayment.routes.js';
-import teamRoutes from './src/routes/team.routes.js';
+
 
 // Middleware
 import { errorHandler } from './src/middleware/error.middleware.js';
@@ -95,7 +95,7 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/refunds', refundRoutes);
 app.use('/api/splits', splitRoutes);
-app.use('/api/team', teamRoutes);
+
 
 // --- Public Routes (Hosted Payment Pages & Buttons) ---
 app.use('/', paymentPageRoutes);

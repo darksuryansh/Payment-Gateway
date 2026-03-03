@@ -1,0 +1,94 @@
+<!-- Tier 1: UPI QR Code + UTR Submission (hidden by default, shown via JS) -->
+<div id="tier1-payment" style="display:none;">
+  <div style="text-align:center; padding: 1rem 0;">
+    <p style="font-size:0.875rem; color:#6b7280; margin-bottom:1rem;">Scan QR code to pay via any UPI app</p>
+    <img id="qr-image" src="" alt="UPI QR Code" style="max-width:280px; margin:0 auto; border-radius:12px;" />
+    <div style="margin-top:1rem;">
+      <a id="upi-link" href="#" class="pay-button" style="display:inline-block; text-decoration:none; padding:10px 24px; border-radius:8px;">
+        Open UPI App
+      </a>
+    </div>
+    <p id="pay-amount-display" style="font-size:1.25rem; font-weight:700; color:#111827; margin-top:1rem;"></p>
+  </div>
+
+  <div style="border-top:1px solid #e5e7eb; margin-top:1.5rem; padding-top:1.5rem;">
+    <p style="font-size:0.875rem; color:#374151; margin-bottom:0.5rem; font-weight:600;">
+      After payment, enter your UTR number:
+    </p>
+    <p style="font-size:0.75rem; color:#9ca3af; margin-bottom:1rem;">
+      Find UTR in your UPI app payment confirmation or bank SMS (12-digit number)
+    </p>
+    <form id="utrForm">
+      <input type="text" id="utr_number" name="utr_number" required
+        pattern="[0-9]{12}" maxlength="12" minlength="12"
+        placeholder="Enter 12-digit UTR number"
+        style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; margin-bottom:1rem; font-size:1rem; box-sizing:border-box;" />
+      <button type="submit" class="pay-button" id="submitUtrBtn" style="width:100%;">Submit UTR</button>
+    </form>
+    <div id="utr-message" class="message" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+  // Tier 1 handler: called when initiate response has tier === 'tier_1'
+  function showTier1Payment(data) {
+    document.getElementById('paymentForm').style.display = 'none';
+    var tier1El = document.getElementById('tier1-payment');
+    tier1El.style.display = 'block';
+    document.getElementById('qr-image').src = data.qr_image;
+    document.getElementById('upi-link').href = data.upi_link;
+    if (data.amount) {
+      document.getElementById('pay-amount-display').innerHTML = '&#8377;' + parseFloat(data.amount || 0).toFixed(2);
+    }
+    window.__orderId = data.order_id;
+    window.__transactionId = data.transaction_id;
+  }
+
+  document.getElementById('utrForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('submitUtrBtn');
+    var msg = document.getElementById('utr-message');
+    var utrVal = document.getElementById('utr_number').value.trim();
+
+    if (!/^\d{12}$/.test(utrVal)) {
+      msg.style.display = 'block';
+      msg.className = 'message error';
+      msg.textContent = 'Please enter a valid 12-digit UTR number.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    try {
+      var res = await fetch('<%= baseUrl %>/api/payment/submit-utr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: window.__orderId,
+          utr_number: utrVal,
+        }),
+      });
+      var data = await res.json();
+
+      if (data.success) {
+        msg.style.display = 'block';
+        msg.className = 'message success';
+        msg.textContent = 'UTR submitted! The merchant will verify your payment shortly.';
+        document.getElementById('utrForm').style.display = 'none';
+      } else {
+        msg.style.display = 'block';
+        msg.className = 'message error';
+        msg.textContent = data.message || 'Submission failed. Please try again.';
+        btn.disabled = false;
+        btn.textContent = 'Submit UTR';
+      }
+    } catch (err) {
+      msg.style.display = 'block';
+      msg.className = 'message error';
+      msg.textContent = 'Something went wrong. Please try again.';
+      btn.disabled = false;
+      btn.textContent = 'Submit UTR';
+    }
+  });
+</script>

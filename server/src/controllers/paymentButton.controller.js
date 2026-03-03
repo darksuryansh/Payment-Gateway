@@ -1,14 +1,15 @@
 import { PaymentButton, Merchant, Transaction } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { initiateTransaction } from '../services/paytm.service.js';
+import { generateTier1PaymentData } from '../services/tier1Payment.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const generateEmbedCode = (button, baseUrl) => {
   const bg = button.style?.bg_color || '#3B82F6';
   const color = button.style?.text_color || '#fff';
   const radius = button.style?.border_radius || '6px';
-  return `<!-- Boomlex Payment Button -->
-<div id="boomlex-btn-${button.id}">
+  return `<!-- Node Gateway Payment Button -->
+<div id="ng-btn-${button.id}">
   <button onclick="window.open('${baseUrl}/pay/button/${button.id}','_blank','width=460,height=620')"
     style="background:${bg};color:${color};padding:12px 24px;border:none;border-radius:${radius};cursor:pointer;font-size:15px;font-weight:600;">
     ${button.label}
@@ -130,7 +131,7 @@ export const renderButtonCheckout = async (req, res, next) => {
   try {
     const button = await PaymentButton.findOne({
       where: { id: req.params.id, is_active: true },
-      include: [{ model: Merchant, as: 'merchant', attributes: ['business_name', 'logo_url'] }],
+      include: [{ model: Merchant, as: 'merchant', attributes: ['business_name', 'logo_url', 'merchant_tier'] }],
     });
 
     if (!button) {
@@ -143,6 +144,7 @@ export const renderButtonCheckout = async (req, res, next) => {
     res.render('button-checkout', {
       button,
       merchant: button.merchant,
+      merchantTier: button.merchant.merchant_tier || 'tier_1',
       baseUrl: process.env.CALLBACK_BASE_URL,
     });
   } catch (err) {
@@ -166,7 +168,9 @@ export const initiateButtonPayment = async (req, res, next) => {
       attributes: { exclude: ['password'] },
     });
 
-    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+    const isTier1 = merchant.merchant_tier === 'tier_1';
+
+    if (!isTier1 && (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key)) {
       return errorResponse(res, 400, 'Merchant has not configured Paytm payments.');
     }
 
@@ -178,9 +182,20 @@ export const initiateButtonPayment = async (req, res, next) => {
       order_id: orderId,
       amount: button.amount,
       sender_note: button.label,
-      callback_url: `${baseUrl}/api/webhooks/paytm`,
-      status: 'PENDING',
+      callback_url: isTier1 ? null : `${baseUrl}/api/webhooks/paytm`,
+      status: isTier1 ? 'PENDING_VERIFICATION' : 'PENDING',
     });
+
+    if (isTier1) {
+      const tier1Data = await generateTier1PaymentData({ merchant, amount: button.amount, note: button.label, orderId });
+      return successResponse(res, 201, 'Payment initiated. Scan QR to pay.', {
+        order_id: orderId,
+        transaction_id: transaction.id,
+        tier: 'tier_1',
+        redirect_url: button.redirect_url || null,
+        ...tier1Data,
+      });
+    }
 
     const paytmResponse = await initiateTransaction({
       merchant,

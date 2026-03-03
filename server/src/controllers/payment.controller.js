@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction, Invoice, Merchant, sequelize } from '../models/pg/index.js';
 import { initiateTransaction, checkTransactionStatus, verifyPaytmCallback } from '../services/paytm.service.js';
+import { generateTier1PaymentData } from '../services/tier1Payment.service.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { exportTransactionsCSV } from '../services/export.service.js';
 import { triggerMerchantWebhooks } from '../services/webhook.service.js';
@@ -16,22 +17,39 @@ export const initiatePayment = async (req, res, next) => {
     const { amount, note, callback_url } = req.body;
     const merchant = req.merchant;
 
-    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+    const isTier1 = merchant.merchant_tier === 'tier_1';
+
+    if (!isTier1 && (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key)) {
       return errorResponse(res, 400, 'Paytm is not configured. Please add your Paytm credentials in settings.');
     }
 
     const orderId = `ORD${uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase()}`;
-    const callbackUrl = callback_url || `${(process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '')}/api/webhooks/paytm`;
+    const baseUrl = (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '');
 
     const transaction = await Transaction.create({
       merchant_id: merchant.id,
       order_id: orderId,
       amount,
       sender_note: note || 'Payment',
-      callback_url: callbackUrl,
-      status: 'PENDING',
+      callback_url: isTier1 ? null : (callback_url || `${baseUrl}/api/webhooks/paytm`),
+      status: isTier1 ? 'PENDING_VERIFICATION' : 'PENDING',
     });
 
+    // Tier 1: return UPI QR code for manual payment
+    if (isTier1) {
+      const tier1Data = await generateTier1PaymentData({ merchant, amount, note, orderId });
+      return successResponse(res, 201, 'Payment initiated. Scan QR to pay.', {
+        order_id: orderId,
+        transaction_id: transaction.id,
+        amount,
+        status: 'PENDING_VERIFICATION',
+        tier: 'tier_1',
+        ...tier1Data,
+      });
+    }
+
+    // Tier 2: Paytm flow
+    const callbackUrl = callback_url || `${baseUrl}/api/webhooks/paytm`;
     const paytmResponse = await initiateTransaction({
       merchant,
       orderId,
@@ -188,8 +206,8 @@ export const getPaymentStatus = async (req, res, next) => {
     });
     if (!transaction) return errorResponse(res, 404, 'Transaction not found.');
 
-    // If still pending, check with Paytm
-    if (transaction.status === 'PENDING' && merchant.paytm_configured) {
+    // If still pending and Tier 2, check with Paytm
+    if (transaction.status === 'PENDING' && merchant.paytm_configured && merchant.merchant_tier === 'tier_2') {
       try {
         const statusResponse = await checkTransactionStatus({ merchant, orderId });
         if (statusResponse.resultStatus === 'TXN_SUCCESS') {
@@ -221,7 +239,9 @@ export const getPaymentStatus = async (req, res, next) => {
         payment_mode: transaction.payment_mode,
         sender_vpa: transaction.sender_vpa,
         utr: transaction.utr,
+        utr_number: transaction.utr_number,
         txn_date: transaction.txn_date,
+        verified_at: transaction.verified_at,
         created_at: transaction.created_at,
       },
     });
@@ -257,6 +277,7 @@ export const listTransactions = async (req, res, next) => {
       where[Op.or] = [
         { order_id: { [Op.iLike]: `%${search}%` } },
         { utr: { [Op.iLike]: `%${search}%` } },
+        { utr_number: { [Op.iLike]: `%${search}%` } },
         { sender_vpa: { [Op.iLike]: `%${search}%` } },
       ];
     }
@@ -306,6 +327,139 @@ export const exportTransactions = async (req, res, next) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=transactions.csv');
     return res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/payment/submit-utr
+ * Public endpoint — customer submits UTR after UPI payment (Tier 1 flow).
+ */
+export const submitUtr = async (req, res, next) => {
+  try {
+    const { order_id, utr_number } = req.body;
+
+    if (!order_id || !utr_number) {
+      return errorResponse(res, 400, 'order_id and utr_number are required.');
+    }
+
+    if (!/^\d{12}$/.test(utr_number)) {
+      return errorResponse(res, 400, 'UTR must be a 12-digit number.');
+    }
+
+    const transaction = await Transaction.findOne({ where: { order_id } });
+    if (!transaction) return errorResponse(res, 404, 'Transaction not found.');
+
+    if (transaction.status !== 'PENDING_VERIFICATION') {
+      return errorResponse(res, 400, 'This transaction is not awaiting UTR verification.');
+    }
+
+    // Check for duplicate UTR across completed transactions
+    const existing = await Transaction.findOne({
+      where: { utr_number, status: 'COMPLETED' },
+    });
+    if (existing) {
+      return errorResponse(res, 400, 'This UTR has already been used for another transaction.');
+    }
+
+    await transaction.update({ utr_number });
+
+    return successResponse(res, 200, 'UTR submitted successfully. Awaiting merchant verification.');
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/payment/pending-verifications
+ * Returns Tier 1 transactions with PENDING_VERIFICATION status that have a UTR.
+ */
+export const getPendingVerifications = async (req, res, next) => {
+  try {
+    const merchantId = req.merchant.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Transaction.findAndCountAll({
+      where: {
+        merchant_id: merchantId,
+        status: 'PENDING_VERIFICATION',
+        utr_number: { [Op.ne]: null },
+      },
+      order: [['created_at', 'DESC']],
+      limit,
+      offset,
+    });
+
+    return successResponse(res, 200, 'Pending verifications retrieved.', {
+      transactions: rows,
+      pagination: { total: count, page, limit, total_pages: Math.ceil(count / limit) },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/payment/verify-utr
+ * Merchant approves or rejects a PENDING_VERIFICATION transaction.
+ */
+export const verifyUtr = async (req, res, next) => {
+  try {
+    const { order_id, action } = req.body;
+    const merchant = req.merchant;
+
+    if (!order_id || !['approve', 'reject'].includes(action)) {
+      return errorResponse(res, 400, 'order_id and action (approve/reject) are required.');
+    }
+
+    const transaction = await Transaction.findOne({
+      where: { order_id, merchant_id: merchant.id, status: 'PENDING_VERIFICATION' },
+    });
+
+    if (!transaction) {
+      return errorResponse(res, 404, 'Pending transaction not found.');
+    }
+
+    const finalStatus = action === 'approve' ? 'COMPLETED' : 'FAILED';
+
+    await sequelize.transaction(async (t) => {
+      await transaction.update({
+        status: finalStatus,
+        verified_by: merchant.id,
+        verified_at: new Date(),
+        settle_amount: action === 'approve' ? transaction.amount : 0,
+        payment_mode: 'UPI',
+        txn_date: action === 'approve' ? new Date() : null,
+      }, { transaction: t });
+
+      if (finalStatus === 'COMPLETED' && transaction.invoice_id) {
+        await Invoice.update(
+          { status: 'PAID', amount_paid: transaction.amount },
+          { where: { id: transaction.invoice_id }, transaction: t }
+        );
+      }
+    });
+
+    // Fire merchant webhooks (non-blocking)
+    const event = finalStatus === 'COMPLETED' ? 'payment.success' : 'payment.failed';
+    triggerMerchantWebhooks(merchant.id, event, {
+      event,
+      order_id: transaction.order_id,
+      transaction_id: transaction.id,
+      amount: transaction.amount,
+      status: finalStatus,
+      utr_number: transaction.utr_number,
+      payment_mode: 'UPI',
+      verified_at: new Date(),
+    }).catch((err) => console.error('[WEBHOOK]', err.message));
+
+    return successResponse(res, 200, `Transaction ${action}d successfully.`, {
+      order_id: transaction.order_id,
+      status: finalStatus,
+    });
   } catch (err) {
     next(err);
   }

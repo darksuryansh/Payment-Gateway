@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Boomlex Pay - Merchant Dashboard",
+  title: "Node Gateway - Merchant Dashboard",
   description: "Payment Gateway Merchant Dashboard",
 };
 

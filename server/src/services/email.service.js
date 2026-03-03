@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const FROM = `"Boomlex Payments" <${process.env.SMTP_USER || 'noreply@boomlex.in'}>`;
+const FROM = `"Node Gateway" <${process.env.SMTP_USER || 'noreply@nodegateway.in'}>`;
 
 /**
  * Send a payment success confirmation to the customer.
@@ -33,7 +33,7 @@ export const sendPaymentSuccessEmail = async ({ to, customerName, amount, orderI
             <tr><td style="padding:8px;color:#6b7280;">Status</td><td style="padding:8px;color:#16a34a;font-weight:bold;">Completed</td></tr>
           </table>
           <p style="color:#6b7280;font-size:0.875rem;">This is an automated confirmation. Zero platform fees charged on UPI payments.</p>
-          <p style="color:#6b7280;font-size:0.75rem;">Powered by Boomlex Payment Gateway</p>
+          <p style="color:#6b7280;font-size:0.75rem;">Powered by Node Gateway</p>
         </div>
       `,
     });
@@ -63,7 +63,7 @@ export const sendPaymentFailedEmail = async ({ to, customerName, amount, orderId
             <tr><td style="padding:8px;color:#6b7280;">Status</td><td style="padding:8px;color:#dc2626;font-weight:bold;">Failed</td></tr>
           </table>
           <p>Please try again or contact <strong>${merchantName}</strong> for assistance.</p>
-          <p style="color:#6b7280;font-size:0.75rem;">Powered by Boomlex Payment Gateway</p>
+          <p style="color:#6b7280;font-size:0.75rem;">Powered by Node Gateway</p>
         </div>
       `,
     });
@@ -93,7 +93,7 @@ export const sendInvoiceEmail = async ({ to, customerName, invoiceNumber, amount
             ${dueDate ? `<tr><td style="padding:8px;color:#6b7280;">Due Date</td><td style="padding:8px;">${new Date(dueDate).toLocaleDateString('en-IN')}</td></tr>` : ''}
           </table>
           ${paymentUrl ? `<a href="${paymentUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Pay Now</a>` : ''}
-          <p style="color:#6b7280;font-size:0.75rem;margin-top:24px;">Powered by Boomlex Payment Gateway</p>
+          <p style="color:#6b7280;font-size:0.75rem;margin-top:24px;">Powered by Node Gateway</p>
         </div>
       `,
     });
@@ -118,7 +118,7 @@ export const sendSubscriptionPaymentEmail = async ({ to, customerName, planName,
           <p>Hi ${customerName || 'there'},</p>
           <p>Your subscription <strong>${planName}</strong> with <strong>${merchantName}</strong> has been renewed.</p>
           <p>Amount charged: <strong>₹${Number(amount).toLocaleString('en-IN')}</strong></p>
-          <p style="color:#6b7280;font-size:0.75rem;">Powered by Boomlex Payment Gateway</p>
+          <p style="color:#6b7280;font-size:0.75rem;">Powered by Node Gateway</p>
         </div>
       `,
     });

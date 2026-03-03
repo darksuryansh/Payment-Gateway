@@ -1,8 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { Merchant, UpiAccount, MerchantSetting } from '../models/pg/index.js';
-import { generateApiKey, generateApiSecret, generateTestApiKey, generateTestApiSecret } from '../utils/generateKeys.js';
+import { Merchant, UpiAccount } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
-import ApiLog from '../models/mongo/ApiLog.js';
 
 /**
  * GET /api/merchant/profile
@@ -43,121 +41,6 @@ export const updateProfile = async (req, res, next) => {
 
     return successResponse(res, 200, 'Profile updated successfully.', {
       merchant: updatedMerchant,
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/**
- * POST /api/merchant/regenerate-keys
- */
-export const regenerateKeys = async (req, res, next) => {
-  try {
-    const api_key = generateApiKey();
-    const api_secret = generateApiSecret();
-
-    await Merchant.update(
-      { api_key, api_secret },
-      { where: { id: req.merchant.id } }
-    );
-
-    return successResponse(res, 200, 'API keys regenerated successfully.', {
-      api_key,
-      api_secret,
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// --- API Keys Management ---
-
-/**
- * GET /api/merchant/api-keys
- */
-export const getApiKeys = async (req, res, next) => {
-  try {
-    const merchant = await Merchant.findByPk(req.merchant.id, {
-      attributes: ['api_key', 'api_secret', 'test_api_key', 'test_api_secret'],
-    });
-
-    const maskKey = (key) => key ? `${key.substring(0, 12)}...${key.substring(key.length - 4)}` : null;
-
-    return successResponse(res, 200, 'API keys retrieved.', {
-      live: {
-        api_key: maskKey(merchant.api_key),
-        api_secret: maskKey(merchant.api_secret),
-        has_keys: !!merchant.api_key,
-      },
-      test: {
-        api_key: maskKey(merchant.test_api_key),
-        api_secret: maskKey(merchant.test_api_secret),
-        has_keys: !!merchant.test_api_key,
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/**
- * POST /api/merchant/api-keys/test/regenerate
- */
-export const regenerateTestKeys = async (req, res, next) => {
-  try {
-    const test_api_key = generateTestApiKey();
-    const test_api_secret = generateTestApiSecret();
-
-    await Merchant.update(
-      { test_api_key, test_api_secret },
-      { where: { id: req.merchant.id } }
-    );
-
-    return successResponse(res, 200, 'Test API keys regenerated.', {
-      test_api_key,
-      test_api_secret,
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/**
- * GET /api/merchant/api-keys/usage
- */
-export const getApiKeyUsage = async (req, res, next) => {
-  try {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-    const [totalCalls, recentCalls] = await Promise.all([
-      ApiLog.countDocuments({ merchant_id: req.merchant.id }),
-      ApiLog.countDocuments({
-        merchant_id: req.merchant.id,
-        created_at: { $gte: thirtyDaysAgo },
-      }),
-    ]);
-
-    const dailyUsage = await ApiLog.aggregate([
-      {
-        $match: {
-          merchant_id: req.merchant.id,
-          created_at: { $gte: thirtyDaysAgo },
-        },
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$created_at' } },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
-
-    return successResponse(res, 200, 'API usage statistics retrieved.', {
-      total_calls: totalCalls,
-      last_30_days: recentCalls,
-      daily_usage: dailyUsage,
     });
   } catch (err) {
     next(err);
@@ -255,59 +138,6 @@ export const deleteBankAccount = async (req, res, next) => {
 
     await account.destroy();
     return successResponse(res, 200, 'Bank account removed.');
-  } catch (err) {
-    next(err);
-  }
-};
-
-// --- Settings ---
-
-/**
- * GET /api/merchant/settings
- */
-export const getSettings = async (req, res, next) => {
-  try {
-    let settings = await MerchantSetting.findOne({
-      where: { merchant_id: req.merchant.id },
-    });
-
-    if (!settings) {
-      settings = await MerchantSetting.create({ merchant_id: req.merchant.id });
-    }
-
-    return successResponse(res, 200, 'Settings retrieved.', { settings });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/**
- * PUT /api/merchant/settings
- */
-export const updateSettings = async (req, res, next) => {
-  try {
-    let settings = await MerchantSetting.findOne({
-      where: { merchant_id: req.merchant.id },
-    });
-
-    if (!settings) {
-      settings = await MerchantSetting.create({ merchant_id: req.merchant.id });
-    }
-
-    const { notification_email, notification_sms, notification_webhook,
-            auto_settlement, settlement_schedule, two_factor_enabled, ip_whitelist } = req.body;
-
-    await settings.update({
-      ...(notification_email !== undefined && { notification_email }),
-      ...(notification_sms !== undefined && { notification_sms }),
-      ...(notification_webhook !== undefined && { notification_webhook }),
-      ...(auto_settlement !== undefined && { auto_settlement }),
-      ...(settlement_schedule !== undefined && { settlement_schedule }),
-      ...(two_factor_enabled !== undefined && { two_factor_enabled }),
-      ...(ip_whitelist !== undefined && { ip_whitelist }),
-    });
-
-    return successResponse(res, 200, 'Settings updated.', { settings });
   } catch (err) {
     next(err);
   }

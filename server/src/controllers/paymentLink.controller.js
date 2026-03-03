@@ -3,6 +3,7 @@ import { PaymentLink, Merchant, Transaction } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { generateShortCode } from '../services/paymentLink.service.js';
 import { initiateTransaction } from '../services/paytm.service.js';
+import { generateTier1PaymentData } from '../services/tier1Payment.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export const createPaymentLink = async (req, res, next) => {
@@ -75,7 +76,7 @@ export const renderPaymentLinkPage = async (req, res, next) => {
   try {
     const link = await PaymentLink.findOne({
       where: { short_url: req.params.shortCode },
-      include: [{ model: Merchant, as: 'merchant', attributes: ['business_name', 'logo_url'] }],
+      include: [{ model: Merchant, as: 'merchant', attributes: ['business_name', 'logo_url', 'merchant_tier'] }],
     });
     if (!link) {
       return res.status(404).render('payment-failed', { title: 'Link Not Found', message: 'This payment link does not exist.' });
@@ -89,7 +90,7 @@ export const renderPaymentLinkPage = async (req, res, next) => {
         title: 'Link Unavailable', message: 'This payment link is ' + link.status.toLowerCase() + '.',
       });
     }
-    res.render('link-checkout', { link, merchant: link.merchant, baseUrl: (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '') });
+    res.render('link-checkout', { link, merchant: link.merchant, merchantTier: link.merchant.merchant_tier || 'tier_1', baseUrl: (process.env.CALLBACK_BASE_URL || '').replace(/\/+$/, '') });
   } catch (err) { next(err); }
 };
 
@@ -108,7 +109,9 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
       attributes: { exclude: ['password'] },
     });
 
-    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+    const isTier1 = merchant.merchant_tier === 'tier_1';
+
+    if (!isTier1 && (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key)) {
       return errorResponse(res, 400, 'Merchant has not configured Paytm payments.');
     }
 
@@ -124,8 +127,19 @@ export const initiatePaymentLinkPayment = async (req, res, next) => {
     const transaction = await Transaction.create({
       merchant_id: link.merchant_id, order_id: orderId, amount,
       sender_note: link.title || link.description || 'Payment Link',
-      callback_url: baseUrl + '/api/webhooks/paytm', status: 'PENDING',
+      callback_url: isTier1 ? null : baseUrl + '/api/webhooks/paytm',
+      status: isTier1 ? 'PENDING_VERIFICATION' : 'PENDING',
     });
+
+    if (isTier1) {
+      const tier1Data = await generateTier1PaymentData({ merchant, amount, note: link.title || link.description, orderId });
+      return successResponse(res, 201, 'Payment initiated. Scan QR to pay.', {
+        order_id: orderId,
+        transaction_id: transaction.id,
+        tier: 'tier_1',
+        ...tier1Data,
+      });
+    }
 
     const paytmResponse = await initiateTransaction({
       merchant,

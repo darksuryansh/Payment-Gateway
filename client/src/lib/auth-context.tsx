@@ -8,6 +8,7 @@ interface Merchant {
   id: string;
   business_name: string;
   email: string;
+  merchant_tier?: "tier_1" | "tier_2";
   api_key?: string;
   api_secret?: string;
 }

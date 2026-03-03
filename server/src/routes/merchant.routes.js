@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import {
-  getProfile, updateProfile, regenerateKeys,
-  getApiKeys, regenerateTestKeys, getApiKeyUsage,
+  getProfile, updateProfile,
   listBankAccounts, addBankAccount, updateBankAccount, deleteBankAccount,
-  getSettings, updateSettings, changePassword,
+  changePassword,
   getPaytmConfig, updatePaytmConfig,
 } from '../controllers/merchant.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -16,12 +15,6 @@ router.use(authenticate);
 // Profile
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
-
-// API Keys
-router.get('/api-keys', getApiKeys);
-router.post('/regenerate-keys', regenerateKeys);
-router.post('/api-keys/test/regenerate', regenerateTestKeys);
-router.get('/api-keys/usage', getApiKeyUsage);
 
 // Bank Accounts
 router.get('/bank-accounts', listBankAccounts);
@@ -37,10 +30,6 @@ router.put('/paytm-config', validate({
   paytm_mid: { required: true },
   paytm_merchant_key: { required: true },
 }), updatePaytmConfig);
-
-// Settings
-router.get('/settings', getSettings);
-router.put('/settings', updateSettings);
 
 // Password
 router.post('/change-password', validate({

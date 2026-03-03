@@ -59,6 +59,8 @@
 
       <div id="message" class="message" style="display:none;"></div>
 
+      <%- include('_tier1-checkout') %>
+
       <% if (link.expires_at) { %>
         <p style="text-align:center; color:#9ca3af; font-size:0.75rem; margin-top:1rem;">
           Expires: <%= new Date(link.expires_at).toLocaleString('en-IN') %>
@@ -66,7 +68,7 @@
       <% } %>
 
       <div class="footer">
-        <p>Secured by <strong>Boomlex Payment Gateway</strong> &bull; Zero UPI Fees</p>
+        <p>Secured by <strong>Node Gateway</strong> &bull; Zero UPI Fees</p>
       </div>
     </div>
   </div>
@@ -92,8 +94,10 @@
 
         const data = await res.json();
 
-        if (data.success && data.data?.payment_url) {
-          // Redirect to Paytm payment page
+        if (data.success && data.data?.tier === 'tier_1') {
+          showTier1Payment(data.data);
+          return;
+        } else if (data.success && data.data?.payment_url) {
           window.location.href = data.data.payment_url;
           return;
         } else if (!data.success) {

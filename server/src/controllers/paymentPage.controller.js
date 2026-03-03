@@ -1,6 +1,7 @@
 import { PaymentPage, Merchant } from '../models/pg/index.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { initiateTransaction } from '../services/paytm.service.js';
+import { generateTier1PaymentData } from '../services/tier1Payment.service.js';
 import { Transaction } from '../models/pg/index.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -106,7 +107,7 @@ export const renderCheckoutPage = async (req, res, next) => {
   try {
     const page = await PaymentPage.findOne({
       where: { slug: req.params.slug, is_active: true },
-      include: [{ model: Merchant, as: 'merchant', attributes: ['business_name', 'logo_url'] }],
+      include: [{ model: Merchant, as: 'merchant', attributes: ['business_name', 'logo_url', 'merchant_tier'] }],
     });
 
     if (!page) {
@@ -119,6 +120,7 @@ export const renderCheckoutPage = async (req, res, next) => {
     res.render('checkout', {
       page,
       merchant: page.merchant,
+      merchantTier: page.merchant.merchant_tier || 'tier_1',
       baseUrl: process.env.CALLBACK_BASE_URL,
     });
   } catch (err) {
@@ -142,7 +144,9 @@ export const initiateHostedPayment = async (req, res, next) => {
       attributes: { exclude: ['password'] },
     });
 
-    if (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key) {
+    const isTier1 = merchant.merchant_tier === 'tier_1';
+
+    if (!isTier1 && (!merchant.paytm_configured || !merchant.paytm_mid || !merchant.paytm_merchant_key)) {
       return errorResponse(res, 400, 'Merchant has not configured Paytm payments.');
     }
 
@@ -157,9 +161,19 @@ export const initiateHostedPayment = async (req, res, next) => {
       order_id: orderId,
       amount,
       sender_note: page.title || 'Payment',
-      callback_url: `${baseUrl}/api/webhooks/paytm`,
-      status: 'PENDING',
+      callback_url: isTier1 ? null : `${baseUrl}/api/webhooks/paytm`,
+      status: isTier1 ? 'PENDING_VERIFICATION' : 'PENDING',
     });
+
+    if (isTier1) {
+      const tier1Data = await generateTier1PaymentData({ merchant, amount, note: page.title, orderId });
+      return successResponse(res, 201, 'Payment initiated. Scan QR to pay.', {
+        order_id: orderId,
+        transaction_id: transaction.id,
+        tier: 'tier_1',
+        ...tier1Data,
+      });
+    }
 
     const paytmResponse = await initiateTransaction({
       merchant,

@@ -58,8 +58,10 @@
 
       <div id="message" class="message" style="display:none;"></div>
 
+      <%- include('_tier1-checkout') %>
+
       <div class="footer">
-        <p>Secured by <strong>Boomlex Payment Gateway</strong></p>
+        <p>Secured by <strong>Node Gateway</strong></p>
       </div>
     </div>
   </div>
@@ -85,7 +87,10 @@
 
         const data = await res.json();
 
-        if (data.success && data.data?.payment_url) {
+        if (data.success && data.data?.tier === 'tier_1') {
+          showTier1Payment(data.data);
+          return;
+        } else if (data.success && data.data?.payment_url) {
           window.location.href = data.data.payment_url;
         } else if (data.success) {
           msg.style.display = 'block';
