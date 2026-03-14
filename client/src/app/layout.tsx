@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Node Gateway - Merchant Dashboard",
-  description: "Payment Gateway Merchant Dashboard",
+  title: "Node Gateway — Accept Payments Effortlessly",
+  description: "A modern UPI payment gateway for Indian businesses. Accept payments via links, pages, QR codes, buttons, and APIs.",
 };
 
 export default function RootLayout({
