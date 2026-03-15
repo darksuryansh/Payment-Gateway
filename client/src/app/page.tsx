@@ -554,21 +554,52 @@ export default function LandingPage() {
       {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-gray-100 bg-gray-50 dark:border-slate-800 dark:bg-slate-950/50">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-600 to-indigo-600">
-                <Zap size={14} className="text-white" />
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-8">
+            {/* Brand */}
+            <div>
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-600 to-indigo-600">
+                  <Zap size={14} className="text-white" />
+                </div>
+                <span className="font-bold text-gray-900 dark:text-white">Node Gateway</span>
               </div>
-              <span className="font-bold text-gray-900 dark:text-white">Node Gateway</span>
+              <p className="text-sm text-gray-500 dark:text-slate-400">
+                Modern UPI payment gateway for Indian businesses.
+              </p>
             </div>
 
-            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-slate-400">
-              <a href="#features" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Features</a>
-              <a href="#pricing" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Pricing</a>
-              <Link href="/login" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Login</Link>
-              <Link href="/register" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Sign Up</Link>
+            {/* Quick Links */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Quick Links</h4>
+              <div className="flex flex-col gap-2.5 text-sm text-gray-500 dark:text-slate-400">
+                <a href="#features" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Features</a>
+                <a href="#pricing" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Pricing</a>
+                <Link href="/login" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Login</Link>
+                <Link href="/register" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Sign Up</Link>
+              </div>
             </div>
 
+            {/* Company */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Company</h4>
+              <div className="flex flex-col gap-2.5 text-sm text-gray-500 dark:text-slate-400">
+                <Link href="/about" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">About Us</Link>
+                <Link href="/contact" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Contact Us</Link>
+              </div>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Legal</h4>
+              <div className="flex flex-col gap-2.5 text-sm text-gray-500 dark:text-slate-400">
+                <Link href="/privacy-policy" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Privacy Policy</Link>
+                <Link href="/terms" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Terms &amp; Conditions</Link>
+                <Link href="/refund-policy" className="hover:text-gray-700 dark:hover:text-slate-200 transition-colors">Refund &amp; Cancellation</Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 pt-6 border-t border-gray-200 dark:border-slate-800 text-center">
             <p className="text-xs text-gray-400 dark:text-slate-500">
               &copy; {new Date().getFullYear()} Node Gateway. All rights reserved.
             </p>
