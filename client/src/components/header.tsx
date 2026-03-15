@@ -10,8 +10,6 @@ import {
   LogOut,
   User,
   Wallet,
-  Key,
-  Users,
   ChevronRight,
   LayoutDashboard,
   Sun,
@@ -29,9 +27,6 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/dashboard/qr-codes": "QR Codes",
   "/dashboard/invoices": "Invoices",
   "/dashboard/subscriptions": "Subscriptions",
-  "/dashboard/refunds": "Refunds",
-  "/dashboard/split-payments": "Split Payments",
-  "/dashboard/settlements": "Settlements",
   "/dashboard/settings/profile": "Profile",
   "/dashboard/settings/api-keys": "API Keys",
   "/dashboard/settings/webhooks": "Webhooks",
@@ -178,8 +173,6 @@ export default function Header() {
                 {[
                   { href: "/dashboard/settings/profile",       icon: User,   label: "Profile & Business Info" },
                   { href: "/dashboard/settings/bank-accounts", icon: Wallet, label: "Bank Accounts & UPI"     },
-                  { href: "/dashboard/settings/api-keys",      icon: Key,    label: "API Keys"                },
-                  { href: "/dashboard/settings/team",          icon: Users,  label: "Team Members"            },
                 ].map(({ href, icon: Icon, label }) => (
                   <Link
                     key={href}

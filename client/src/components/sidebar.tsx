@@ -11,9 +11,6 @@ import {
   QrCode,
   Receipt,
   RefreshCw,
-  Undo2,
-  Split,
-  Landmark,
   Settings,
   Building2,
   Webhook,
@@ -39,12 +36,6 @@ const paymentItems = [
   { label: "QR Codes",        href: "/dashboard/qr-codes",        icon: QrCode     },
   { label: "Invoices",        href: "/dashboard/invoices",        icon: Receipt    },
   { label: "Subscriptions",   href: "/dashboard/subscriptions",   icon: RefreshCw  },
-];
-
-const financeItems = [
-  { label: "Refunds",        href: "/dashboard/refunds",        icon: Undo2    },
-  { label: "Split Payments", href: "/dashboard/split-payments", icon: Split    },
-  { label: "Settlements",    href: "/dashboard/settlements",    icon: Landmark },
 ];
 
 const settingsItems = [
@@ -137,7 +128,6 @@ export default function Sidebar() {
         ))}
 
         <NavSection label="Payments" items={paymentItems} isActive={isActive} />
-        <NavSection label="Finance"  items={financeItems}  isActive={isActive} />
 
         {/* Settings collapsible */}
         <div className="space-y-0.5">
