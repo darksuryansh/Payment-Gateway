@@ -161,7 +161,7 @@ export default function RegisterPage() {
                     required
                     value={form.business_name}
                     onChange={(e) => updateField("business_name", e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
+                    className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder-slate-500"
                     placeholder="Your Business Name"
                   />
                 </div>
@@ -181,7 +181,7 @@ export default function RegisterPage() {
                       required
                       value={form.email}
                       onChange={(e) => updateField("email", e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
+                      className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder-slate-500"
                       placeholder="you@business.com"
                     />
                   </div>
@@ -197,7 +197,7 @@ export default function RegisterPage() {
                       type="tel"
                       value={form.phone}
                       onChange={(e) => updateField("phone", e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
+                      className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder-slate-500"
                       placeholder="+91 9876543210"
                     />
                   </div>
@@ -217,7 +217,7 @@ export default function RegisterPage() {
                     required
                     value={form.password}
                     onChange={(e) => updateField("password", e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
+                    className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder-slate-500"
                     placeholder="Minimum 8 characters"
                   />
                 </div>
@@ -319,7 +319,7 @@ export default function RegisterPage() {
                         type="text"
                         value={form.upi_id}
                         onChange={(e) => updateField("upi_id", e.target.value)}
-                        className="w-full rounded-xl border border-gray-300 bg-white py-2.5 px-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
+                        className="w-full rounded-xl border border-gray-300 bg-white py-2.5 px-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder-slate-500"
                         placeholder="yourname@okaxis"
                       />
                       <p className="text-xs text-gray-400 mt-1 dark:text-slate-500">You can also add this later in settings.</p>
@@ -329,7 +329,7 @@ export default function RegisterPage() {
 
                 {/* Tier 2 fields */}
                 {form.merchant_tier === "tier_2" && (
-                  <div className="mt-4 space-y-3 rounded-xl bg-gray-50 p-4 border border-gray-200 dark:bg-slate-900 dark:border-slate-700">
+                  <div className="mt-4 space-y-3 rounded-xl bg-gray-50 p-4 border border-gray-200 dark:bg-slate-950 dark:border-slate-700">
                     <p className="text-xs text-gray-500 dark:text-slate-400">
                       Connect your Paytm Business account. You can also configure this later.
                     </p>
@@ -342,7 +342,7 @@ export default function RegisterPage() {
                         type="text"
                         value={form.paytm_mid}
                         onChange={(e) => updateField("paytm_mid", e.target.value)}
-                        className="w-full rounded-xl border border-gray-300 bg-white py-2.5 px-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
+                        className="w-full rounded-xl border border-gray-300 bg-white py-2.5 px-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder-slate-500"
                         placeholder="e.g. MERCHANT12345678"
                       />
                     </div>
@@ -355,7 +355,7 @@ export default function RegisterPage() {
                         type="password"
                         value={form.paytm_merchant_key}
                         onChange={(e) => updateField("paytm_merchant_key", e.target.value)}
-                        className="w-full rounded-xl border border-gray-300 bg-white py-2.5 px-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
+                        className="w-full rounded-xl border border-gray-300 bg-white py-2.5 px-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder-slate-500"
                         placeholder="Your Paytm secret key"
                       />
                     </div>

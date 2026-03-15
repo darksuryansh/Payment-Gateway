@@ -81,18 +81,18 @@ html.dark textarea:focus {
 }
 
 /* --- Tables --- */
-html.dark .hover\:bg-gray-50:hover td { background-color: #263147; }
-html.dark thead tr { border-color: #334155; }
+html.dark .hover\:bg-gray-50:hover td { background-color: #1e293b; }
+html.dark thead tr { border-color: #1e293b; }
 
 /* --- Divide --- */
 html.dark .divide-gray-100 > * + *,
-html.dark .divide-gray-200 > * + * { border-color: #334155; }
+html.dark .divide-gray-200 > * + * { border-color: #1e293b; }
 
 /* --- Scrollbar --- */
-html.dark ::-webkit-scrollbar        { background-color: #0f172a; width: 6px; }
-html.dark ::-webkit-scrollbar-track  { background-color: #0f172a; }
-html.dark ::-webkit-scrollbar-thumb  { background-color: #334155; border-radius: 99px; }
-html.dark ::-webkit-scrollbar-thumb:hover { background-color: #475569; }
+html.dark ::-webkit-scrollbar        { background-color: #020617; width: 6px; }
+html.dark ::-webkit-scrollbar-track  { background-color: #020617; }
+html.dark ::-webkit-scrollbar-thumb  { background-color: #1e293b; border-radius: 99px; }
+html.dark ::-webkit-scrollbar-thumb:hover { background-color: #334155; }
 
 /* =============================================
    ANIMATIONS
@@ -148,5 +148,5 @@ html.dark ::-webkit-scrollbar-thumb:hover { background-color: #475569; }
   background-size: 24px 24px;
 }
 html.dark .bg-dot-pattern {
-  background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+  background-image: radial-gradient(circle, #1e293b 1px, transparent 1px);
 }

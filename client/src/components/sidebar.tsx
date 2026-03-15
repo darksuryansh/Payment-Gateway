@@ -115,7 +115,7 @@ export default function Sidebar() {
   const settingsActive = pathname.startsWith("/dashboard/settings");
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:bg-slate-900 dark:border-slate-700">
+    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:bg-slate-950 dark:border-slate-700">
       {/* Brand */}
       <div className="flex h-16 items-center gap-3 border-b border-gray-200 px-5 dark:border-slate-700">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/25">

@@ -199,7 +199,7 @@ export default function LandingPage() {
             </Link>
             <a
               href="#features"
-              className="inline-flex items-center gap-2 rounded-2xl border border-gray-300 bg-white px-8 py-3.5 text-base font-semibold text-gray-700 hover:bg-gray-50 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-2xl border border-gray-300 bg-white px-8 py-3.5 text-base font-semibold text-gray-700 hover:bg-gray-50 transition-all dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Explore Features
             </a>
@@ -208,7 +208,7 @@ export default function LandingPage() {
       </Section>
 
       {/* ═══ STATS STRIP ═══ */}
-      {/* <Section className="py-12 border-y border-gray-100 bg-gray-50/50 dark:border-slate-800 dark:bg-slate-900/50">
+      {/* <Section className="py-12 border-y border-gray-100 bg-gray-50/50 dark:border-slate-800 dark:bg-slate-950/50">
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           {[
             { value: `${txnCount.toLocaleString("en-IN")}+`, label: "Transactions Processed" },
@@ -284,7 +284,7 @@ export default function LandingPage() {
             return (
               <div
                 key={feature.title}
-                className="group relative rounded-2xl border border-gray-200 bg-white p-7 transition-all hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 dark:border-slate-800 dark:bg-slate-900 dark:hover:shadow-slate-900/50"
+                className="group relative rounded-2xl border border-gray-200 bg-white p-7 transition-all hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:shadow-slate-900/50"
               >
                 <div
                   className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br ${feature.color} shadow-lg`}
@@ -308,7 +308,7 @@ export default function LandingPage() {
       </Section>
 
       {/* ═══ HOW IT WORKS ═══ */}
-      <Section id="how-it-works" className="py-20 sm:py-28 bg-gray-50 dark:bg-slate-900/50">
+      <Section id="how-it-works" className="py-20 sm:py-28 bg-gray-50 dark:bg-slate-950/50">
         <div className="text-center mb-16">
           <p className="text-sm font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
             How It Works
@@ -374,7 +374,7 @@ export default function LandingPage() {
 
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 max-w-4xl mx-auto">
           {/* Tier 1 */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900/50">
             <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400 mb-4">
               <Smartphone size={14} />
               Tier 1 — UPI Direct
@@ -409,7 +409,7 @@ export default function LandingPage() {
           </div>
 
           {/* Tier 2 */}
-          <div className="relative rounded-2xl border-2 border-blue-500 bg-white p-8 shadow-xl shadow-blue-500/10 dark:bg-slate-900">
+          <div className="relative rounded-2xl border-2 border-blue-500 bg-white p-8 shadow-xl shadow-blue-500/10 dark:bg-slate-900/50">
             <div className="absolute -top-3 right-6 rounded-full bg-linear-to-r from-blue-600 to-indigo-600 px-3 py-1 text-xs font-bold text-white">
               RECOMMENDED
             </div>
@@ -449,7 +449,7 @@ export default function LandingPage() {
       </Section>
 
       {/* ═══ EXTRA FEATURES ═══ */}
-      <Section className="py-20 sm:py-28 bg-gray-50 dark:bg-slate-900/50">
+      <Section className="py-20 sm:py-28 bg-gray-50 dark:bg-slate-950/50">
         <div className="text-center mb-16">
           <p className="text-sm font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
             And More
@@ -470,7 +470,7 @@ export default function LandingPage() {
             return (
               <div
                 key={feature.title}
-                className="rounded-2xl border border-gray-200 bg-white p-6 transition-all hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
+                className="rounded-2xl border border-gray-200 bg-white p-6 transition-all hover:shadow-lg dark:border-slate-800 dark:bg-slate-900/50"
               >
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30">
                   <Icon size={20} className="text-blue-600 dark:text-blue-400" />
@@ -505,7 +505,7 @@ export default function LandingPage() {
             return (
               <div
                 key={item.title}
-                className="group rounded-2xl border border-gray-200 bg-white p-6 text-center transition-all hover:border-blue-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-700"
+                className="group rounded-2xl border border-gray-200 bg-white p-6 text-center transition-all hover:border-blue-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-blue-700"
               >
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-50 transition-colors group-hover:bg-blue-50 dark:bg-slate-800 dark:group-hover:bg-blue-900/30">
                   <Icon size={24} className="text-gray-500 transition-colors group-hover:text-blue-600 dark:text-slate-400 dark:group-hover:text-blue-400" />
@@ -552,7 +552,7 @@ export default function LandingPage() {
       </Section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="border-t border-gray-100 bg-gray-50 dark:border-slate-800 dark:bg-slate-900/50">
+      <footer className="border-t border-gray-100 bg-gray-50 dark:border-slate-800 dark:bg-slate-950/50">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2.5">

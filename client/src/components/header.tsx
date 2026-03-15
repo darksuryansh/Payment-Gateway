@@ -79,7 +79,7 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 gap-4 dark:bg-slate-900 dark:border-slate-700">
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 gap-4 dark:bg-slate-950 dark:border-slate-700">
       {/* Left — breadcrumbs */}
       <nav className="flex items-center gap-1.5 text-sm min-w-0">
         {crumbs.map((crumb, i) => {
