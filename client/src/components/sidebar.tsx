@@ -10,7 +10,6 @@ import {
   CreditCard,
   QrCode,
   Receipt,
-  RefreshCw,
   Settings,
   Building2,
   Webhook,
@@ -35,7 +34,6 @@ const paymentItems = [
   { label: "Payment Buttons", href: "/dashboard/payment-buttons", icon: CreditCard },
   { label: "QR Codes",        href: "/dashboard/qr-codes",        icon: QrCode     },
   { label: "Invoices",        href: "/dashboard/invoices",        icon: Receipt    },
-  { label: "Subscriptions",   href: "/dashboard/subscriptions",   icon: RefreshCw  },
 ];
 
 const settingsItems = [

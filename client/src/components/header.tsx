@@ -26,7 +26,6 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/dashboard/payment-buttons": "Payment Buttons",
   "/dashboard/qr-codes": "QR Codes",
   "/dashboard/invoices": "Invoices",
-  "/dashboard/subscriptions": "Subscriptions",
   "/dashboard/settings/profile": "Profile",
   "/dashboard/settings/api-keys": "API Keys",
   "/dashboard/settings/webhooks": "Webhooks",

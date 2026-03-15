@@ -16,12 +16,7 @@ const AVAILABLE_EVENTS = [
   "payment.success",
   "payment.failed",
   "payment.pending",
-  "refund.processed",
-  "refund.failed",
-  "subscription.created",
-  "subscription.cancelled",
   "invoice.paid",
-  "settlement.processed",
 ];
 
 export default function WebhooksPage() {

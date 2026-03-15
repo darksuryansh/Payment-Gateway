@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Link2,
-  Undo2,
   Webhook,
   TrendingUp,
   QrCode,
@@ -27,7 +26,6 @@ interface DashboardStats {
 
 interface QuickStats {
   active_payment_links: number;
-  pending_refunds: number;
   active_webhooks: number;
 }
 
@@ -133,7 +131,6 @@ export default function DashboardPage() {
     { label: "Payment Link", icon: Link2, href: "/dashboard/payment-links", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30" },
     { label: "QR Code", icon: QrCode, href: "/dashboard/qr-codes", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30" },
     { label: "Invoice", icon: Receipt, href: "/dashboard/invoices", color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" },
-    { label: "Refund", icon: Undo2, href: "/dashboard/refunds", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30" },
   ];
 
   const statusConfig: Record<string, { color: string; dot: string }> = {
@@ -196,7 +193,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {quickActions.map((action) => {
             const Icon = action.icon;
             return (
@@ -230,14 +227,6 @@ export default function DashboardPage() {
               color: "text-blue-600 dark:text-blue-400",
               bg: "bg-blue-50 dark:bg-blue-900/20",
               href: "/dashboard/payment-links",
-            },
-            {
-              label: "Pending Refunds",
-              value: quickStats?.pending_refunds || 0,
-              icon: Undo2,
-              color: "text-orange-600 dark:text-orange-400",
-              bg: "bg-orange-50 dark:bg-orange-900/20",
-              href: "/dashboard/refunds",
             },
             {
               label: "Active Webhooks",
