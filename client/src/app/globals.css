@@ -126,6 +126,26 @@ html.dark ::-webkit-scrollbar-thumb:hover { background-color: #334155; }
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(59,130,246,0.3); }
+  50%      { box-shadow: 0 0 40px rgba(59,130,246,0.6); }
+}
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 
 .animate-fade-in       { animation: fade-in 0.7s ease-out both; }
 .animate-fade-in-left  { animation: fade-in-left 0.7s ease-out both; }
@@ -133,6 +153,11 @@ html.dark ::-webkit-scrollbar-thumb:hover { background-color: #334155; }
 .animate-float         { animation: float 3s ease-in-out infinite; }
 .animate-pulse-soft    { animation: pulse-soft 2s ease-in-out infinite; }
 .animate-shimmer       { animation: shimmer 2s linear infinite; background-size: 200% 100%; }
+.animate-scale-in      { animation: scale-in 0.6s ease-out both; }
+.animate-slide-up      { animation: slide-up 0.8s ease-out both; }
+.animate-glow          { animation: glow 3s ease-in-out infinite; }
+.animate-gradient-x    { animation: gradient-x 6s ease infinite; background-size: 200% 200%; }
+.animate-marquee       { animation: marquee 30s linear infinite; }
 
 .delay-100 { animation-delay: 0.1s; }
 .delay-200 { animation-delay: 0.2s; }
@@ -141,6 +166,9 @@ html.dark ::-webkit-scrollbar-thumb:hover { background-color: #334155; }
 .delay-500 { animation-delay: 0.5s; }
 .delay-600 { animation-delay: 0.6s; }
 .delay-700 { animation-delay: 0.7s; }
+.delay-800 { animation-delay: 0.8s; }
+.delay-900 { animation-delay: 0.9s; }
+.delay-1000 { animation-delay: 1s; }
 
 /* Dot grid background pattern */
 .bg-dot-pattern {
@@ -149,4 +177,36 @@ html.dark ::-webkit-scrollbar-thumb:hover { background-color: #334155; }
 }
 html.dark .bg-dot-pattern {
   background-image: radial-gradient(circle, #1e293b 1px, transparent 1px);
+}
+
+/* Grid background pattern */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+html.dark .bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(59,130,246,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.06) 1px, transparent 1px);
+}
+
+/* Gradient text utility */
+.text-gradient {
+  background: linear-gradient(135deg, #3b82f6, #6366f1, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass morphism card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+html.dark .glass-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(51, 65, 85, 0.3);
 }

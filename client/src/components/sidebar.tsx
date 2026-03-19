@@ -20,15 +20,18 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 
-const navItems = [
+type NavItem = { label: string; href: string; icon: React.ElementType; tier?: "tier_1" | "tier_2" };
+
+const navItems: NavItem[] = [
   { label: "Dashboard",     href: "/dashboard",                       icon: LayoutDashboard },
   { label: "Transactions",  href: "/dashboard/transactions",          icon: ArrowLeftRight  },
-  { label: "Verifications", href: "/dashboard/pending-verifications", icon: ShieldCheck     },
+  { label: "Verifications", href: "/dashboard/pending-verifications", icon: ShieldCheck, tier: "tier_1" },
   { label: "Analytics",     href: "/dashboard/analytics",             icon: BarChart2       },
 ];
 
-const paymentItems = [
+const paymentItems: NavItem[] = [
   { label: "Payment Links",   href: "/dashboard/payment-links",   icon: Link2      },
   { label: "Payment Pages",   href: "/dashboard/payment-pages",   icon: FileText   },
   { label: "Payment Buttons", href: "/dashboard/payment-buttons", icon: CreditCard },
@@ -36,14 +39,12 @@ const paymentItems = [
   { label: "Invoices",        href: "/dashboard/invoices",        icon: Receipt    },
 ];
 
-const settingsItems = [
+const settingsItems: NavItem[] = [
   { label: "Profile",       href: "/dashboard/settings/profile",        icon: Building2 },
-  { label: "Paytm Config",  href: "/dashboard/settings/paytm",          icon: CreditCard},
+  { label: "Paytm Config",  href: "/dashboard/settings/paytm",          icon: CreditCard, tier: "tier_2" },
   { label: "Bank Accounts", href: "/dashboard/settings/bank-accounts",  icon: Wallet    },
   { label: "Webhooks",      href: "/dashboard/settings/webhooks",       icon: Webhook   },
 ];
-
-type NavItem = { label: string; href: string; icon: React.ElementType };
 
 function NavLink({ item, active, indent = false }: { item: NavItem; active: boolean; indent?: boolean }) {
   const Icon = item.icon;
@@ -92,6 +93,8 @@ function NavSection({
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { merchant } = useAuth();
+  const tier = merchant?.merchant_tier || "tier_1";
   const [settingsOpen, setSettingsOpen] = useState(
     pathname.startsWith("/dashboard/settings")
   );
@@ -100,6 +103,9 @@ export default function Sidebar() {
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   };
+
+  const filterByTier = (items: NavItem[]) =>
+    items.filter((item) => !item.tier || item.tier === tier);
 
   const settingsActive = pathname.startsWith("/dashboard/settings");
 
@@ -118,14 +124,26 @@ export default function Sidebar() {
         </Link>
       </div>
 
+      {/* Tier badge */}
+      <div className="px-5 pb-2 pt-3">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+          tier === "tier_2"
+            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+            : "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+        }`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${tier === "tier_2" ? "bg-blue-500" : "bg-green-500"}`} />
+          {tier === "tier_2" ? "Paytm Business" : "Personal UPI"}
+        </span>
+      </div>
+
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {/* Core items */}
-        {navItems.map((item) => (
+        {filterByTier(navItems).map((item) => (
           <NavLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
 
-        <NavSection label="Payments" items={paymentItems} isActive={isActive} />
+        <NavSection label="Payments" items={filterByTier(paymentItems)} isActive={isActive} />
 
         {/* Settings collapsible */}
         <div className="space-y-0.5">
@@ -164,7 +182,7 @@ export default function Sidebar() {
             }`}
           >
             <div className="ml-4 space-y-0.5 border-l-2 border-gray-100 pl-3 pt-1 dark:border-slate-800">
-              {settingsItems.map((item) => (
+              {filterByTier(settingsItems).map((item) => (
                 <NavLink key={item.href} item={item} active={isActive(item.href)} indent />
               ))}
             </div>

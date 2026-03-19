@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 import api from "@/lib/api";
 import {
   QrCode,
@@ -11,11 +12,14 @@ import {
   StickyNote,
   CheckCircle2,
   Info,
+  CreditCard,
 } from "lucide-react";
 
-type Mode = "static" | "dynamic";
+type Mode = "static" | "dynamic" | "paytm_dynamic";
 
 export default function QRCodesPage() {
+  const { merchant } = useAuth();
+  const tier = merchant?.merchant_tier || "tier_1";
   const [mode, setMode] = useState<Mode>("static");
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [qrData, setQrData] = useState<string>("");
@@ -41,11 +45,11 @@ export default function QRCodesPage() {
     setQrData("");
     try {
       const payload: Record<string, unknown> = { format: "png" };
-      // Dynamic QR always includes amount; Static QR never does
-      if (mode === "dynamic") payload.amount = parseFloat(amount);
+      if (mode === "dynamic" || mode === "paytm_dynamic") payload.amount = parseFloat(amount);
       if (note) payload.note = note;
 
-      const res = await api.post("/qrcodes/generate", payload);
+      const endpoint = mode === "paytm_dynamic" ? "/qrcodes/dynamic" : "/qrcodes/generate";
+      const res = await api.post(endpoint, payload);
       setQrImage(res.data.data.qr_image);
       setQrData(res.data.data.qr_data);
     } catch (err: unknown) {
@@ -60,7 +64,7 @@ export default function QRCodesPage() {
     if (!qrImage) return;
     const a = document.createElement("a");
     a.href = qrImage.startsWith("data:") ? qrImage : `data:image/png;base64,${qrImage}`;
-    a.download = mode === "static" ? "static-upi-qr.png" : `dynamic-qr-rs${amount}.png`;
+    a.download = mode === "static" ? "static-upi-qr.png" : mode === "paytm_dynamic" ? `paytm-qr-rs${amount}.png` : `dynamic-qr-rs${amount}.png`;
     a.click();
   };
 
@@ -73,7 +77,9 @@ export default function QRCodesPage() {
       <div>
         <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">QR Codes</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-          Generate UPI QR codes linked to your primary UPI account.
+          {tier === "tier_1"
+            ? "Generate UPI QR codes linked to your primary UPI account."
+            : "Generate UPI or Paytm-powered QR codes for payments."}
         </p>
       </div>
 
@@ -90,7 +96,7 @@ export default function QRCodesPage() {
       </div>
 
       {/* Mode explainer cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-4 ${tier === "tier_2" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <button
           onClick={() => switchMode("static")}
           className={`text-left rounded-2xl border-2 p-5 transition-all ${
@@ -144,6 +150,36 @@ export default function QRCodesPage() {
             exact amount. Generate a fresh one for each specific transaction.
           </p>
         </button>
+
+        {/* Paytm Dynamic QR — Tier 2 only */}
+        {tier === "tier_2" && (
+          <button
+            onClick={() => switchMode("paytm_dynamic")}
+            className={`text-left rounded-2xl border-2 p-5 transition-all ${
+              mode === "paytm_dynamic"
+                ? "border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20"
+                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700"
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${mode === "paytm_dynamic" ? "bg-cyan-100 dark:bg-cyan-900/40" : "bg-gray-100 dark:bg-slate-800"}`}>
+                <CreditCard size={18} className={mode === "paytm_dynamic" ? "text-cyan-600 dark:text-cyan-400" : "text-gray-500 dark:text-slate-400"} />
+              </div>
+              <div>
+                <p className={`font-semibold text-sm ${mode === "paytm_dynamic" ? "text-cyan-700 dark:text-cyan-300" : "text-gray-900 dark:text-white"}`}>
+                  Paytm Dynamic QR
+                </p>
+                {mode === "paytm_dynamic" && (
+                  <span className="text-xs font-medium text-cyan-600 dark:text-cyan-400">Selected</span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed">
+              Paytm API-powered QR with auto-verification. Supports UPI, cards,
+              and wallets. Creates a tracked transaction automatically.
+            </p>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -152,12 +188,12 @@ export default function QRCodesPage() {
           <div className="border-b border-gray-100 px-6 py-4 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
               <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                mode === "static" ? "bg-blue-50 dark:bg-blue-900/20" : "bg-indigo-50 dark:bg-indigo-900/20"
+                mode === "static" ? "bg-blue-50 dark:bg-blue-900/20" : mode === "paytm_dynamic" ? "bg-cyan-50 dark:bg-cyan-900/20" : "bg-indigo-50 dark:bg-indigo-900/20"
               }`}>
-                <QrCode size={16} className={mode === "static" ? "text-blue-600 dark:text-blue-400" : "text-indigo-600 dark:text-indigo-400"} />
+                <QrCode size={16} className={mode === "static" ? "text-blue-600 dark:text-blue-400" : mode === "paytm_dynamic" ? "text-cyan-600 dark:text-cyan-400" : "text-indigo-600 dark:text-indigo-400"} />
               </div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                {mode === "static" ? "Static QR — No Amount" : "Dynamic QR — Fixed Amount"}
+                {mode === "static" ? "Static QR — No Amount" : mode === "paytm_dynamic" ? "Paytm Dynamic QR — Tracked" : "Dynamic QR — Fixed Amount"}
               </h3>
             </div>
           </div>
@@ -170,8 +206,8 @@ export default function QRCodesPage() {
               </div>
             )}
 
-            {/* Amount — only for Dynamic */}
-            {mode === "dynamic" && (
+            {/* Amount — for Dynamic and Paytm Dynamic */}
+            {mode !== "static" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
                   Amount (₹) <span className="text-red-500">*</span>
@@ -221,15 +257,17 @@ export default function QRCodesPage() {
 
             <button
               type="submit"
-              disabled={loading || (mode === "dynamic" && !amount)}
+              disabled={loading || (mode !== "static" && !amount)}
               className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 ${
                 mode === "static"
                   ? "bg-linear-to-r from-blue-600 to-indigo-600 shadow-blue-500/20 hover:shadow-blue-500/30"
-                  : "bg-linear-to-r from-indigo-600 to-purple-600 shadow-indigo-500/20 hover:shadow-indigo-500/30"
+                  : mode === "paytm_dynamic"
+                    ? "bg-linear-to-r from-cyan-600 to-teal-600 shadow-cyan-500/20 hover:shadow-cyan-500/30"
+                    : "bg-linear-to-r from-indigo-600 to-purple-600 shadow-indigo-500/20 hover:shadow-indigo-500/30"
               }`}
             >
               <QrCode size={16} />
-              {loading ? "Generating..." : `Generate ${mode === "static" ? "Static" : "Dynamic"} QR`}
+              {loading ? "Generating..." : `Generate ${mode === "static" ? "Static" : mode === "paytm_dynamic" ? "Paytm" : "Dynamic"} QR`}
             </button>
           </form>
         </div>
@@ -251,6 +289,12 @@ export default function QRCodesPage() {
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
                   <IndianRupee size={13} />
                   {parseFloat(amount).toLocaleString("en-IN")} pre-filled
+                </div>
+              )}
+              {mode === "paytm_dynamic" && amount && (
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-3 py-1 text-sm font-semibold text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400">
+                  <CreditCard size={13} />
+                  Paytm QR — ₹{parseFloat(amount).toLocaleString("en-IN")}
                 </div>
               )}
               {mode === "static" && (

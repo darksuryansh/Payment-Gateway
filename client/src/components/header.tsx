@@ -161,6 +161,13 @@ export default function Header() {
                     {merchant?.business_name}
                   </p>
                   <p className="text-xs text-gray-500 truncate dark:text-slate-400">{merchant?.email}</p>
+                  <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                    merchant?.merchant_tier === "tier_2"
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  }`}>
+                    {merchant?.merchant_tier === "tier_2" ? "Paytm Business" : "Personal UPI"}
+                  </span>
                 </div>
               </div>
 

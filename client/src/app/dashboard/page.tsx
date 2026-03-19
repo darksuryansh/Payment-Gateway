@@ -17,6 +17,8 @@ import {
   ExternalLink,
   Clock,
   ArrowRight,
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 
 interface DashboardStats {
@@ -40,6 +42,7 @@ interface Transaction {
 
 export default function DashboardPage() {
   const { merchant } = useAuth();
+  const tier = merchant?.merchant_tier || "tier_1";
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [quickStats, setQuickStats] = useState<QuickStats | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -114,22 +117,34 @@ export default function DashboardPage() {
       iconBg: "bg-purple-100 dark:bg-purple-900/30",
       iconColor: "text-purple-600 dark:text-purple-400",
     },
-    {
-      label: "Pending Settlements",
-      value: `₹${(stats?.overall.pending_settlements || 0).toLocaleString("en-IN")}`,
-      icon: ArrowDownRight,
-      trend: "Awaiting settlement",
-      trendUp: false,
-      gradient: "from-orange-500 to-amber-600",
-      bg: "bg-orange-50 dark:bg-orange-900/20",
-      iconBg: "bg-orange-100 dark:bg-orange-900/30",
-      iconColor: "text-orange-600 dark:text-orange-400",
-    },
+    tier === "tier_1"
+      ? {
+          label: "Pending Verifications",
+          value: stats?.overall.pending_settlements || 0,
+          icon: ShieldCheck,
+          trend: "Awaiting manual verification",
+          trendUp: false,
+          gradient: "from-orange-500 to-amber-600",
+          bg: "bg-orange-50 dark:bg-orange-900/20",
+          iconBg: "bg-orange-100 dark:bg-orange-900/30",
+          iconColor: "text-orange-600 dark:text-orange-400",
+        }
+      : {
+          label: "Pending Settlements",
+          value: `₹${(stats?.overall.pending_settlements || 0).toLocaleString("en-IN")}`,
+          icon: ArrowDownRight,
+          trend: "Awaiting settlement",
+          trendUp: false,
+          gradient: "from-orange-500 to-amber-600",
+          bg: "bg-orange-50 dark:bg-orange-900/20",
+          iconBg: "bg-orange-100 dark:bg-orange-900/30",
+          iconColor: "text-orange-600 dark:text-orange-400",
+        },
   ];
 
   const quickActions = [
     { label: "Payment Link", icon: Link2, href: "/dashboard/payment-links", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30" },
-    { label: "QR Code", icon: QrCode, href: "/dashboard/qr-codes", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30" },
+    { label: tier === "tier_1" ? "UPI QR Code" : "QR Code", icon: QrCode, href: "/dashboard/qr-codes", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30" },
     { label: "Invoice", icon: Receipt, href: "/dashboard/invoices", color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" },
   ];
 
@@ -154,10 +169,33 @@ export default function DashboardPage() {
             {merchant?.business_name || "Merchant"}
           </h1>
           <p className="mt-2 text-blue-200 text-sm max-w-lg">
-            Here&apos;s what&apos;s happening with your payments today. Stay on top of your business.
+            {tier === "tier_1"
+              ? "Personal UPI payments \u2014 verify transactions manually for full control."
+              : "Paytm Business \u2014 automated verification across UPI, cards, and wallets."}
           </p>
         </div>
       </div>
+
+      {/* ─── Upgrade Banner (Tier 1 only) ─── */}
+      {tier === "tier_1" && (
+        <Link
+          href="/dashboard/settings/paytm"
+          className="group flex items-center justify-between rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50 to-orange-50 p-5 transition-all hover:shadow-md dark:border-amber-800 dark:from-amber-900/20 dark:to-orange-900/20"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/40">
+              <Sparkles size={20} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">Upgrade to Paytm Business</p>
+              <p className="text-xs text-gray-500 dark:text-slate-400">
+                Accept cards, wallets, and net banking. Get automated payment verification.
+              </p>
+            </div>
+          </div>
+          <ArrowRight size={18} className="text-gray-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
+        </Link>
+      )}
 
       {/* ─── Stat Cards ─── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
