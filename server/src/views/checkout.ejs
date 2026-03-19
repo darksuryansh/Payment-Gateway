@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= page.title %> - Payment</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/checkout.css">
   <style>
-    :root { --theme-color: <%= page.theme_color || '#000000' %>; }
+    :root { --theme-color: <%= page.theme_color || '#6366f1' %>; }
   </style>
 </head>
 <body>
@@ -61,7 +63,7 @@
       <%- include('_tier1-checkout') %>
 
       <div class="footer">
-        <p>Secured by <strong>Node Gateway</strong></p>
+        <p>Secured by <strong>Node Gateway</strong> &bull; Zero UPI Fees</p>
       </div>
     </div>
   </div>

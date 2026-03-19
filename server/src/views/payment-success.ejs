@@ -4,16 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Payment Successful</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/checkout.css">
 </head>
 <body>
   <div class="checkout-container">
-    <div class="checkout-card">
+    <div class="checkout-card" style="text-align:center; padding-top:36px;">
       <div class="status-icon success-icon">&#10003;</div>
       <h1 class="status-title">Payment Successful</h1>
       <p class="status-message"><%= typeof message !== 'undefined' ? message : 'Your payment has been processed successfully.' %></p>
       <% if (typeof order_id !== 'undefined') { %>
-        <p class="order-ref">Order ID: <strong><%= order_id %></strong></p>
+        <div class="order-ref">Order ID: <strong><%= order_id %></strong></div>
       <% } %>
       <div class="footer">
         <p>Secured by <strong>Node Gateway</strong></p>

@@ -1,44 +1,96 @@
-<!-- Tier 1: UPI QR Code + UTR Submission (hidden by default, shown via JS) -->
-<div id="tier1-payment" style="display:none;">
-  <div style="text-align:center; padding: 1rem 0;">
-    <p style="font-size:0.875rem; color:#6b7280; margin-bottom:1rem;">Scan QR code to pay via any UPI app</p>
-    <img id="qr-image" src="" alt="UPI QR Code" style="max-width:280px; margin:0 auto; border-radius:12px;" />
-    <div style="margin-top:1rem;">
-      <a id="upi-link" href="#" class="pay-button" style="display:inline-block; text-decoration:none; padding:10px 24px; border-radius:8px;">
+<!-- Tier 1: UPI QR Code + UTR Submission (step-based, compact) -->
+<div id="tier1-payment" class="tier1-section">
+
+  <!-- Step Tabs -->
+  <div class="tier1-steps">
+    <div class="tier1-step active" id="step1-tab" onclick="switchStep(1)">
+      <div class="tier1-step-num">1</div>
+      <span class="tier1-step-label">Scan & Pay</span>
+    </div>
+    <div class="tier1-step" id="step2-tab" onclick="switchStep(2)">
+      <div class="tier1-step-num">2</div>
+      <span class="tier1-step-label">Submit UTR</span>
+    </div>
+  </div>
+
+  <!-- Step 1: QR + UPI Link -->
+  <div class="tier1-panel active" id="step1-panel">
+    <div class="qr-wrapper">
+      <p class="qr-hint">Scan with any UPI app to pay</p>
+      <div class="qr-frame">
+        <img id="qr-image" src="" alt="UPI QR Code" />
+      </div>
+      <div class="qr-amount" id="pay-amount-display"></div>
+    </div>
+
+    <div class="qr-or-divider">or</div>
+
+    <div style="text-align:center;">
+      <a id="upi-link" href="#" class="upi-app-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
         Open UPI App
       </a>
     </div>
-    <p id="pay-amount-display" style="font-size:1.25rem; font-weight:700; color:#111827; margin-top:1rem;"></p>
+
+    <button type="button" class="next-step-btn" onclick="switchStep(2)">
+      I've completed the payment &rarr;
+    </button>
   </div>
 
-  <div style="border-top:1px solid #e5e7eb; margin-top:1.5rem; padding-top:1.5rem;">
-    <p style="font-size:0.875rem; color:#374151; margin-bottom:0.5rem; font-weight:600;">
-      After payment, enter your UTR number:
-    </p>
-    <p style="font-size:0.75rem; color:#9ca3af; margin-bottom:1rem;">
-      Find UTR in your UPI app payment confirmation or bank SMS (12-digit number)
-    </p>
-    <form id="utrForm">
-      <input type="text" id="utr_number" name="utr_number" required
-        pattern="[0-9]{12}" maxlength="12" minlength="12"
-        placeholder="Enter 12-digit UTR number"
-        style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; margin-bottom:1rem; font-size:1rem; box-sizing:border-box;" />
-      <button type="submit" class="pay-button" id="submitUtrBtn" style="width:100%;">Submit UTR</button>
-    </form>
+  <!-- Step 2: UTR Submission -->
+  <div class="tier1-panel" id="step2-panel">
+    <div class="utr-panel-content" id="utr-form-area">
+      <div class="utr-icon">&#9989;</div>
+      <div class="utr-title">Confirm Your Payment</div>
+      <div class="utr-subtitle">
+        Enter the 12-digit UTR number from your<br>UPI app payment confirmation or bank SMS
+      </div>
+
+      <form id="utrForm">
+        <div class="utr-input-wrapper">
+          <input type="text" id="utr_number" name="utr_number" required
+            pattern="[0-9]{12}" maxlength="12" minlength="12"
+            inputmode="numeric"
+            placeholder="000000000000" />
+        </div>
+
+        <button type="submit" class="pay-button" id="submitUtrBtn">Submit UTR</button>
+      </form>
+
+      <p class="utr-help">
+        You'll find the UTR/Reference number in your payment app's<br>transaction details or in the SMS from your bank.
+      </p>
+    </div>
+
+    <!-- Success state (shown after UTR submit) -->
+    <div id="utr-success-area" style="display:none;">
+      <div class="utr-success-card">
+        <div class="icon">&#10004;</div>
+        <div class="title">UTR Submitted Successfully</div>
+        <div class="subtitle">The merchant will verify your payment shortly.<br>You can close this page now.</div>
+      </div>
+    </div>
+
     <div id="utr-message" class="message" style="display:none;"></div>
   </div>
 </div>
 
 <script>
-  // Tier 1 handler: called when initiate response has tier === 'tier_1'
+  function switchStep(step) {
+    document.getElementById('step1-tab').className = 'tier1-step' + (step === 1 ? ' active' : ' completed');
+    document.getElementById('step2-tab').className = 'tier1-step' + (step === 2 ? ' active' : '');
+    document.getElementById('step1-panel').className = 'tier1-panel' + (step === 1 ? ' active' : '');
+    document.getElementById('step2-panel').className = 'tier1-panel' + (step === 2 ? ' active' : '');
+  }
+
   function showTier1Payment(data) {
     document.getElementById('paymentForm').style.display = 'none';
     var tier1El = document.getElementById('tier1-payment');
-    tier1El.style.display = 'block';
+    tier1El.classList.add('active');
     document.getElementById('qr-image').src = data.qr_image;
     document.getElementById('upi-link').href = data.upi_link;
     if (data.amount) {
-      document.getElementById('pay-amount-display').innerHTML = '&#8377;' + parseFloat(data.amount || 0).toFixed(2);
+      document.getElementById('pay-amount-display').innerHTML = '&#8377; ' + parseFloat(data.amount || 0).toFixed(2);
     }
     window.__orderId = data.order_id;
     window.__transactionId = data.transaction_id;
@@ -72,10 +124,9 @@
       var data = await res.json();
 
       if (data.success) {
-        msg.style.display = 'block';
-        msg.className = 'message success';
-        msg.textContent = 'UTR submitted! The merchant will verify your payment shortly.';
-        document.getElementById('utrForm').style.display = 'none';
+        document.getElementById('utr-form-area').style.display = 'none';
+        document.getElementById('utr-success-area').style.display = 'block';
+        msg.style.display = 'none';
       } else {
         msg.style.display = 'block';
         msg.className = 'message error';

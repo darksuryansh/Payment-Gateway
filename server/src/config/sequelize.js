@@ -11,6 +11,12 @@ const dbOptions = {
     acquire: 30000,
     idle: 10000,
   },
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
+    },
+  },
   define: {
     timestamps: true,
     underscored: true,

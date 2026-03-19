@@ -8,7 +8,7 @@ dotenv.config();
 const connectPG = async () => {
   try {
     await sequelize.authenticate();
-    console.log('PostgreSQL Connected via Sequelize (Docker)');
+    console.log('PostgreSQL Connected via Sequelize (Neon)');
   } catch (err) {
     console.error('PostgreSQL Connection Failed:', err.message);
     process.exit(1);

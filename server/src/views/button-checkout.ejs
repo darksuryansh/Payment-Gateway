@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= button.label %> - <%= merchant.business_name %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/checkout.css">
   <style>
-    :root { --theme-color: <%= button.style?.bg_color || '#3B82F6' %>; }
+    :root { --theme-color: <%= button.style?.bg_color || '#6366f1' %>; }
   </style>
 </head>
 <body>
@@ -37,8 +39,7 @@
           <input type="email" id="email" name="email" placeholder="your@email.com">
         </div>
 
-        <button type="submit" id="payBtn" class="pay-button"
-          style="background: var(--theme-color); color: <%= button.style?.text_color || '#fff' %>;">
+        <button type="submit" id="payBtn" class="pay-button">
           <%= button.label %> &mdash; &#8377;<%= parseFloat(button.amount).toFixed(2) %>
         </button>
       </form>

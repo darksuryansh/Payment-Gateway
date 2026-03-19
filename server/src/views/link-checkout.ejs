@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= link.title || 'Payment' %> - <%= merchant.business_name %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/checkout.css">
   <style>
-    :root { --theme-color: #3B82F6; }
+    :root { --theme-color: #6366f1; }
   </style>
 </head>
 <body>
@@ -33,7 +35,7 @@
         <% } %>
 
         <% if (link.customer_name) { %>
-          <p style="text-align:center; color:#6b7280; font-size:0.875rem; margin-top:0.5rem;">
+          <p class="customer-info">
             For: <strong><%= link.customer_name %></strong>
             <% if (link.customer_email) { %> (<%= link.customer_email %>)<% } %>
           </p>
@@ -62,9 +64,11 @@
       <%- include('_tier1-checkout') %>
 
       <% if (link.expires_at) { %>
-        <p style="text-align:center; color:#9ca3af; font-size:0.75rem; margin-top:1rem;">
-          Expires: <%= new Date(link.expires_at).toLocaleString('en-IN') %>
-        </p>
+        <div class="expiry-wrapper">
+          <span class="expiry-info">
+            Expires: <%= new Date(link.expires_at).toLocaleString('en-IN') %>
+          </span>
+        </div>
       <% } %>
 
       <div class="footer">
