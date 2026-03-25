@@ -15,8 +15,38 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Node Gateway — Accept Payments Effortlessly",
-  description: "A modern UPI payment gateway for Indian businesses. Accept payments via links, pages, QR codes, buttons, and APIs.",
+  title: {
+    default: "Node Gateway | Effortless Payment Solutions",
+    template: "%s | Node Gateway"
+  },
+  description: "A developer-friendly Node.js payment gateway for modern businesses. Effortlessly accept payments, manage subscriptions, set up payment links, and access powerful APIs.",
+  keywords: ["payment gateways", "payment solutions", "node gateway", "Node.js payment gateway", "UPI payments", "online payments", "developer friendly gateway"],
+  authors: [{ name: "Node Gateway" }],
+  creator: "Node Gateway",
+  openGraph: {
+    type: "website",
+    locale: "en_IN",
+    url: "https://nodegateway.vercel.app",
+    title: "Node Gateway | Powerful Payment Solutions",
+    description: "Accept payments natively with the best developer-friendly Node.js payment gateway for modern businesses.",
+    siteName: "Node Gateway",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Node Gateway | Effortless Payment Solutions",
+    description: "Accept payments natively with the best developer-friendly Node.js payment gateway for modern businesses.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({
