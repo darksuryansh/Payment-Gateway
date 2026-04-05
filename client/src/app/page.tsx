@@ -59,8 +59,8 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { label: "Features", href: "#features" },
-    { label: "Payment Methods", href: "#payment-methods" },
+    { label: "Features", href: "/features" },
+    { label: "Blog", href: "/blog" },
     { label: "How It Works", href: "#how-it-works" },
     { label: "Pricing", href: "#pricing" },
   ];
