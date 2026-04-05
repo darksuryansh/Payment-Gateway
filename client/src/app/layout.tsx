@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nodegateway.vercel.app"),
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
   title: {
     default: "Node Gateway - Free Payment Gateway | Accept Online Payments",
     template: "%s | Node Gateway",
@@ -87,6 +91,13 @@ export const metadata: Metadata = {
   },
 };
 
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Node Gateway",
+  url: "https://nodegateway.vercel.app",
+};
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
@@ -117,6 +128,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
